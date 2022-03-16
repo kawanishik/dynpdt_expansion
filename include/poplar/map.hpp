@@ -1,26 +1,3 @@
-/**
- * MIT License
- *
- * Copyright (c) 2018–2019 Shunsuke Kanda
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
 #ifndef POPLAR_TRIE_MAP_HPP
 #define POPLAR_TRIE_MAP_HPP
 
@@ -29,6 +6,9 @@
 
 #include "bit_tools.hpp"
 #include "exception.hpp"
+
+static std::map<int, int> cnt_hash;
+static uint64_t all_cnt = 0;
 
 namespace poplar {
 
@@ -81,10 +61,13 @@ class map {
         }
 
         auto node_id = hash_trie_.get_root();
+        all_cnt = 0;
+        int cnt = 0;
 
         while (!key.empty()) {
             auto [vptr, match] = label_store_.compare(node_id, key);
             if (vptr != nullptr) {
+                cnt_hash[cnt] += 1;
                 return vptr;
             }
 
@@ -96,6 +79,7 @@ class map {
                     return nullptr;
                 }
                 match -= lambda_;
+                cnt += 1;
             }
 
             if (codes_[*key.begin] == UINT8_MAX) {
@@ -107,10 +91,12 @@ class map {
             if (node_id == nil_id) {
                 return nullptr;
             }
+            cnt += 1;
 
             ++key.begin;
         }
 
+        cnt_hash[cnt] += 1;
         return label_store_.compare(node_id, key).first;
     }
 
@@ -218,6 +204,12 @@ class map {
         return bytes;
     }
 
+    void reset_cnt_hash() {
+        std::cout << "--- reset_cnt_hash ---" << std::endl;
+        cnt_hash.clear();
+        all_cnt = 0;
+    }
+
     void show_stats(std::ostream& os, int n = 0) const {
         auto indent = get_indent(n);
         show_stat(os, indent, "name", "map");
@@ -231,6 +223,30 @@ class map {
         hash_trie_.show_stats(os, n + 1);
         show_member(os, indent, "label_store_");
         label_store_.show_stats(os, n + 1);
+    }
+
+    void show_cnt_hash() {
+        std::cout << "--- show_cnt_hash ---" << std::endl;
+        std::cout << "all_cnt : " << all_cnt << std::endl;
+        uint64_t all = 0;
+        uint64_t sum = 0;
+        for(auto p : cnt_hash) {
+            // std::cout << p.first << " : " << p.second << std::endl;
+            // std::cout << p.second << std::endl;
+            std::cout << p.first << std::endl;
+            all += p.second;
+        }
+        std::cout << "----" << std::endl;
+        for(auto p : cnt_hash) {
+            std::cout << p.second << std::endl;
+            sum += p.first * p.second;
+        }
+
+        std::cout << "all : " << all << std::endl;
+        std::cout << "ave_hash : " << (long double)(sum) / (long double)(11414967) << std::endl; // enwiki
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(52616588) << std::endl; // DS5
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(10154743) << std::endl; // AOL
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(7609320) << std::endl; // GeoNames
     }
 
     map(const map&) = delete;

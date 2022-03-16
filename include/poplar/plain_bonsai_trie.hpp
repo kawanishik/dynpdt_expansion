@@ -1,26 +1,3 @@
-/**
- * MIT License
- *
- * Copyright (c) 2018–2019 Shunsuke Kanda
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
 #ifndef POPLAR_TRIE_PLAIN_BONSAI_TRIE_HPP
 #define POPLAR_TRIE_PLAIN_BONSAI_TRIE_HPP
 
@@ -28,6 +5,9 @@
 #include "bit_vector.hpp"
 #include "compact_vector.hpp"
 #include "hash.hpp"
+
+static std::map<int, int> cnt_linear_proving;
+static uint64_t cnt_linear_proving_all = 0;
 
 namespace poplar {
 
@@ -75,7 +55,9 @@ class plain_bonsai_trie {
         uint64_t key = make_key_(node_id, symb);
         assert(key != 0);
 
+        // int cnt = 0;
         for (uint64_t i = Hasher::hash(key) & capa_size_.mask();; i = right_(i)) {
+            // cnt += 1;
             if (i == 0) {
                 // table_[0] is always empty so that table_[i] = 0 indicates to be empty.
                 continue;
@@ -88,6 +70,10 @@ class plain_bonsai_trie {
                 return nil_id;
             }
             if (table_[i] == key) {
+                // if(symb == 255) { // ダミーノードのみを対象としてするときに
+                    // cnt_linear_proving[cnt] += 1;
+                    // cnt_linear_proving_all += 1;
+                // }
                 return i;
             }
         }
@@ -221,6 +207,29 @@ class plain_bonsai_trie {
         std::swap(*this, new_ht);
 
         return node_map;
+    }
+
+    void reset_cnt_compare() {
+        std::cout << "--- reset_cnt_linear_proving ---" << std::endl;
+        cnt_linear_proving.clear();
+        cnt_linear_proving_all = 0;
+    }
+
+    void show_cnt_compare() {
+        std::cout << "--- cnt_linear_proving ---" << std::endl;
+        std::cout << "all : " << cnt_linear_proving_all << std::endl;
+        uint64_t all = 0;
+        for(auto p : cnt_linear_proving) {
+            // std::cout << p.first << " : " << (long double)(p.second) / (long double)(cnt_linear_proving_all) << std::endl;
+            // std::cout << p.first << " : " << p.second << std::endl;
+            std::cout << p.first << std::endl;
+            all += p.second;
+        }
+        std::cout << "---" << std::endl;
+        for(auto p : cnt_linear_proving) {
+            std::cout << p.second << std::endl;
+        }
+        std::cout << "all : " << all << std::endl;
     }
 
     // # of registerd nodes
