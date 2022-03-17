@@ -245,11 +245,12 @@ void remake_dataset(std::vector<std::string>& keys) {
 }
 
 template<class Map>
-void bench(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
+void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
     // uint32_t capa_bits = 16;
     // uint64_t lambda = 32;
     // Map map{capa_bits, lambda};
-    Map map;
+    // Map map;
+
     // キー追加
     const auto input_num_keys = static_cast<int>(keys.size());
     std::cout << "input_num_keys : " << input_num_keys << std::endl;
@@ -300,7 +301,7 @@ int main() {
     std::vector<std::string> test_keys;                         // 全てのキーに対する検索時間を測定する際に使用
     std::vector<std::vector<std::string>> random_test_keys;     // ランダムに取り出したキーを検索する際に使用
     
-    std::cout << "normal, initial_CPD, remake_CPD" << std::endl;
+    std::cout << "normal, initial_CPD, remake_CPD, check" << std::endl;
     std::cout << "上記より選択してください : ";
     std::string input_name;
     std::cin >> input_name;
@@ -309,10 +310,16 @@ int main() {
     FileRead(keys, test_keys, random_test_keys);
 
     if(input_name == "normal") { // 何も変更していない通常の辞書
-        bench<poplar::plain_bonsai_map<int>>(keys, test_keys, random_test_keys);
+        poplar::plain_bonsai_map<int> map;
+        bench(map, keys, test_keys, random_test_keys);
     } else if(input_name == "remake_CPD") { // keysに入れ替えた文字列を一度保存してから、辞書に追加していく
         remake_dataset(keys);
-        bench<poplar::plain_bonsai_map<int>>(keys, test_keys, random_test_keys);
+        poplar::plain_bonsai_map<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+    } else if(input_name == "check") {
+        poplar::plain_bonsai_map_check<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+        map.call_topo();
     } else if(input_name == "initial_CPD") { // CPD順に入れ替えてから、辞書に格納
         const auto input_num_keys = static_cast<int>(keys.size());
         std::cout << "input_num_keys : " << input_num_keys << std::endl;
