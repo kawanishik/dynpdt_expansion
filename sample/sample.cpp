@@ -60,6 +60,7 @@ std::vector<std::string> MakePartialTimeKeysets(const std::vector<std::string>& 
 
 template <typename MAP>
 double CalcSearchSpeed(const MAP &dyn_, const std::vector<std::string>& keys,uint64_t size) {
+    std::cout << "--- CalcSearchSpeed ---" << std::endl;
     double time = 0.0;
     for(int i=0; i < search_cnt; i++) {
         std::vector<std::string> keysets = MakePartialTimeKeysets(keys, size);
@@ -80,6 +81,7 @@ double CalcSearchSpeed(const MAP &dyn_, const std::vector<std::string>& keys,uin
 
 template <typename MAP>
 double AllDatasetSearchSpeed(const MAP &dyn_, const std::vector<std::string>& test_keys) {
+    std::cout << "--- AllDatasetSearchSpeed ---" << std::endl;
     Stopwatch sw;
     for(int i=0; i < int(test_keys.size()); i++) {
         const int *ptr = dyn_.find(test_keys[i]);
@@ -93,6 +95,7 @@ double AllDatasetSearchSpeed(const MAP &dyn_, const std::vector<std::string>& te
 
 template <typename MAP>
 double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<std::string>>& random_test_keys) {
+    std::cout << "--- CalcRandomFileSearchSpeed ---" << std::endl;
     double time = 0.0;
     for(int i=0; i < search_cnt; i++) {
         Stopwatch sw;
@@ -113,6 +116,11 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
+
+    // std::string input_name = "../../../dataset/enwiki_CP.txt";
+    // std::string input_name = "../../../dataset/DS5_CP.txt";
+    // std::string input_name = "../../../dataset/GeoNames_CP.txt";
+    // std::string input_name = "../../../dataset/AOL_CP.txt";
 
     // std::string input_name = "../../../dataset/DS5_partial";
     // std::string input_name = "../../../dataset/tmp/enwiki_shuf.txt";
@@ -288,8 +296,8 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     std::cout << "capa_size : " << map.capa_size() << std::endl;
 
     // map.reset_cnt_hash();
-    auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // auto search_time = AllDatasetSearchSpeed(map, test_keys);
+    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
@@ -356,8 +364,8 @@ int main() {
         std::cout << "capa_size : " << map.capa_size() << std::endl;
         
         // map.reset_cnt_hash();
-        auto search_time = AllDatasetSearchSpeed(map, test_keys);
-        // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+        // auto search_time = AllDatasetSearchSpeed(map, test_keys);
+        auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
         // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
         // map.show_cnt_hash();
         std::cout << "time_search : " << search_time << std::endl;
