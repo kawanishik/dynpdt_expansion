@@ -6,6 +6,7 @@
 #include <random>
 #include <poplar.hpp>
 #include <algorithm>
+#include <string_view>
 #include <unistd.h>
 
 namespace {
@@ -48,18 +49,19 @@ inline uint64_t get_process_size() {
 }
 
 std::vector<std::string> MakePartialTimeKeysets(const std::vector<std::string>& keys, uint64_t size) {
-    std::vector<std::string> keysets;
+    std::vector<std::string> keysets(search_get_string);
     std::random_device rnd;
     for(int i=0; i < search_get_string; i++) {
         int v = rnd() % size;
-        keysets.push_back((keys[v]));
+        // keysets.push_back((keys[v]));
+        keysets[i] = keys[v];
     }
     // std::sort(time_keysets[j].begin(), time_keysets[j].end());
     return keysets;
 }
 
 template <typename MAP>
-double CalcSearchSpeed(const MAP &dyn_, const std::vector<std::string>& keys,uint64_t size) {
+double CalcSearchSpeed(const MAP &dyn_, const std::vector<std::string>& keys, uint64_t size) {
     std::cout << "--- CalcSearchSpeed ---" << std::endl;
     double time = 0.0;
     for(int i=0; i < search_cnt; i++) {
@@ -71,6 +73,44 @@ double CalcSearchSpeed(const MAP &dyn_, const std::vector<std::string>& keys,uin
             if (not (ptr != nullptr and *ptr == 1)) {
                 // std::cerr << "Failed to find " << time_keysets[j] << std::endl;
                 std::cerr << "Failed to find " << keysets[j] << std::endl;
+                return -1;
+            }
+        }
+        time += sw.get_milli_sec();
+        // time += sw.get_sec();
+    }
+    return time / (double)(search_cnt);
+}
+
+std::pair<std::string, std::vector<std::pair<uint64_t, uint64_t>>> MakeSequentialKeysets(const std::vector<std::string>& keys, uint64_t size) {
+    std::string sequential_key = "";
+    std::vector<std::pair<uint64_t, uint64_t>> sequential_set(search_get_string);
+    std::random_device rnd;
+    for(int i=0; i < search_get_string; i++) {
+        int v = rnd() % size;
+        std::string key = keys[v];
+        // std::cout << "key : " << key << std::endl;
+        // sleep(1);
+        sequential_set[i] = std::pair<uint64_t, uint64_t>{sequential_key.size(), key.size()};
+        sequential_key += key;
+        // std::cout << "sequential_key : " << sequential_key.size() << std::endl;
+    }
+    return {sequential_key, sequential_set};
+}
+
+// 検索するデータセットをシーケンシャルに配置
+template <typename MAP>
+double CalcSearchSpeedSequence(const MAP &dyn_, const std::vector<std::string>& keys, uint64_t size) {
+    std::cout << "--- CalcSearchSpeedSequence ---" << std::endl;
+    double time = 0.0;
+    for(int i=0; i < search_cnt; i++) {
+        auto [sequential_key, sequential_set] = MakeSequentialKeysets(keys, size);
+        Stopwatch sw;
+        for(int j=0; j < search_get_string; j++) {
+            // std::cout << std::string_view{sequential_key}.substr(sequential_set[i].first, sequential_set[i].second) << std::endl;
+            const int *ptr = dyn_.find(std::string_view{sequential_key}.substr(sequential_set[i].first, sequential_set[i].second));
+            if (not (ptr != nullptr and *ptr == 1)) {
+                std::cerr << "Failed to find " << std::string_view{sequential_key}.substr(sequential_set[i].first, sequential_set[i].second) << std::endl;
                 return -1;
             }
         }
@@ -112,10 +152,13 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
-    // std::string input_name = "../../../dataset/GeoNames.txt";
+    std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
+    // std::string input_name = "../../../dataset/in-2004.txt";
+    // std::string input_name = "../../../dataset/uk-2005.txt";
+    // std::string input_name = "../../../dataset/webbase-2001.txt";
 
     // std::string input_name = "../../../dataset/enwiki_CP.txt";
     // std::string input_name = "../../../dataset/DS5_CP.txt";
@@ -275,11 +318,13 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     }
 
     auto ram_size = get_process_size() - begin_size;
-    auto time = sw.get_milli_sec();
+    // auto time = sw.get_milli_sec();
+    auto time = sw.get_sec();
 
     std::cout << "----------------------" << std::endl;
     // 追加されたキーが全て辞書に存在するのかをチェック
     // bool test_check = true;
+    // map.reset_cnt_hash();
     // for(int i=0; i < input_num_keys; i++) {
     //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
     //     const int *ptr = map.find(keys[i]);
@@ -291,7 +336,8 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     // }
     // std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
-    std::cout << "Build time(m): " << time / 1000.0 << std::endl;
+    // std::cout << "Build time(m): " << time / 1000.0 << std::endl;
+    std::cout << "Build time(m): " << time << std::endl;
     std::cout << "ram_size : " << ram_size << std::endl;
     std::cout << "capa_size : " << map.capa_size() << std::endl;
 
@@ -299,6 +345,7 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
     auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
+    // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
 }
@@ -343,9 +390,11 @@ int main() {
         std::sort(keys.begin(), keys.end());
         insert_by_centroid_path_order(keys.begin(), keys.end(), 0, map);
         auto ram_size = get_process_size() - begin_size;
-        auto time = sw.get_milli_sec();
+        // auto time = sw.get_milli_sec();
+        auto time = sw.get_sec();
 
         // bool test_check = true;
+        // map.reset_cnt_hash();
         // for(int i=0; i < input_num_keys; i++) {
         //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
         //     const int *ptr = map.find(keys[i]);
@@ -359,7 +408,8 @@ int main() {
         // }
         // std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
-        std::cout << "Build time(m): " << time / 1000.0 << std::endl;
+        // std::cout << "Build time(m): " << time / 1000.0 << std::endl;
+        std::cout << "Build time(m): " << time << std::endl;
         std::cout << "ram_size : " << ram_size << std::endl;
         std::cout << "capa_size : " << map.capa_size() << std::endl;
         
