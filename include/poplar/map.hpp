@@ -247,6 +247,9 @@ class map {
         // std::cout << "ave_hash : " << (long double)(sum) / (long double)(52616588) << std::endl; // DS5
         // std::cout << "ave_hash : " << (long double)(sum) / (long double)(10154743) << std::endl; // AOL
         // std::cout << "ave_hash : " << (long double)(sum) / (long double)(7609320) << std::endl; // GeoNames
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(1382908) << std::endl; // in-2004
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(39459925) << std::endl; // uk-2005
+        // std::cout << "ave_hash : " << (long double)(sum) / (long double)(118142155) << std::endl; // webbase-2001
     }
 
     map(const map&) = delete;
