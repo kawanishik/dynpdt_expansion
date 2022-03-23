@@ -183,38 +183,38 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
         keys.push_back(s);
     }
 
-    std::string test_name = "../../../dataset/test_enwiki.txt";
-    // std::string test_name = "../../../dataset/test_DS5.txt";
-    // std::string test_name = "../../../dataset/test_GeoNames.txt";
-    // std::string test_name = "../../../dataset/test_AOL.txt";
-    std::ifstream tfs(test_name);
-    if (!tfs) {
-        std::cerr << "File not found input file: "<< test_name << std::endl;
-        exit(0);
-    }
-    std::cout << "dataset : " << test_name.substr(17) << std::endl;
-    for (std::string s; std::getline(tfs, s); ) {
-        test_keys.push_back(s);
-    }
+    // std::string test_name = "../../../dataset/test_enwiki.txt";
+    // // std::string test_name = "../../../dataset/test_DS5.txt";
+    // // std::string test_name = "../../../dataset/test_GeoNames.txt";
+    // // std::string test_name = "../../../dataset/test_AOL.txt";
+    // std::ifstream tfs(test_name);
+    // if (!tfs) {
+    //     std::cerr << "File not found input file: "<< test_name << std::endl;
+    //     exit(0);
+    // }
+    // std::cout << "dataset : " << test_name.substr(17) << std::endl;
+    // for (std::string s; std::getline(tfs, s); ) {
+    //     test_keys.push_back(s);
+    // }
 
-    test_name = "../../../dataset/random_test_enwiki.txt";
-    // test_name = "../../../dataset/random_test_DS5.txt";
-    // test_name = "../../../dataset/random_test_GeoNames.txt";
-    // test_name = "../../../dataset/random_test_AOL.txt";
-    std::ifstream tfs2(test_name);
-    if (!tfs2) {
-        std::cerr << "File not found input file: "<< test_name << std::endl;
-        exit(0);
-    }
-    std::cout << "dataset : " << test_name.substr(17) << std::endl;
-    int cnt = 0;
-    int i = 0;
-    random_test_keys.resize(search_cnt);
-    for (std::string s; std::getline(tfs2, s); ) {
-        random_test_keys[i].push_back(s);
-        cnt++;
-        if(cnt % search_get_string == 0) i++;
-    }
+    // test_name = "../../../dataset/random_test_enwiki.txt";
+    // // test_name = "../../../dataset/random_test_DS5.txt";
+    // // test_name = "../../../dataset/random_test_GeoNames.txt";
+    // // test_name = "../../../dataset/random_test_AOL.txt";
+    // std::ifstream tfs2(test_name);
+    // if (!tfs2) {
+    //     std::cerr << "File not found input file: "<< test_name << std::endl;
+    //     exit(0);
+    // }
+    // std::cout << "dataset : " << test_name.substr(17) << std::endl;
+    // int cnt = 0;
+    // int i = 0;
+    // random_test_keys.resize(search_cnt);
+    // for (std::string s; std::getline(tfs2, s); ) {
+    //     random_test_keys[i].push_back(s);
+    //     cnt++;
+    //     if(cnt % search_get_string == 0) i++;
+    // }
 }
 } // namespace
 
@@ -343,11 +343,11 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 
     // map.reset_cnt_hash();
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
-    std::cout << "time_search : " << search_time << std::endl;
+    // std::cout << "time_search : " << search_time << std::endl;
 }
 
 int main() {

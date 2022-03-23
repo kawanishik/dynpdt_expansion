@@ -183,8 +183,22 @@ class map_check {
     // トポロジカルソートを呼び出す
     void call_topo() {
         std::cout << "--- call_topo ---" << std::endl;
+        hash_trie_.reset_cnt_compare();
         auto [fork_info, blanch_num, check_bottom] = hash_trie_.return_partial_CP_info(restore_codes_); // 
         std::cout << "size : " << fork_info.size() << std::endl;
+        for(auto node : fork_info[hash_trie_.get_root()]) {
+            std::cout << node.match << ", " << node.cnt << ", " << node.children.size() << std::endl;
+            for(auto [next_id, leaf_cnt] : node.children) { // children : vector<pair<uint64_t, uint64_t>>
+                auto [parent, symb] = hash_trie_.get_parent_and_symb(next_id);
+                // std::cout << next_id << ", " << leaf_cnt << std::endl;
+                // std::cout << parent << ", " << symb << std::endl;
+                auto node_id = hash_trie_.find_child(parent, symb);
+                // break;
+            }
+            break;
+        }
+
+        hash_trie_.show_cnt_compare();
     }
 
     // Gets the number of registered keys.

@@ -55,9 +55,9 @@ class plain_bonsai_trie_check {
         uint64_t key = make_key_(node_id, symb);
         assert(key != 0);
 
-        // int cnt = 0;
+        int cnt = 0;
         for (uint64_t i = Hasher::hash(key) & capa_size_.mask();; i = right_(i)) {
-            // cnt += 1;
+            cnt += 1;
             if (i == 0) {
                 // table_[0] is always empty so that table_[i] = 0 indicates to be empty.
                 continue;
@@ -71,8 +71,8 @@ class plain_bonsai_trie_check {
             }
             if (table_[i] == key) {
                 // if(symb == 255) { // ダミーノードのみを対象としてするときに
-                    // cnt_linear_proving[cnt] += 1;
-                    // cnt_linear_proving_all += 1;
+                    cnt_linear_proving[cnt] += 1;
+                    cnt_linear_proving_all += 1;
                 // }
                 return i;
             }
