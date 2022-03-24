@@ -153,8 +153,8 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
     // std::string input_name = "../../../dataset/Titles-enwiki.txt";
-    // std::string input_name = "../../../dataset/DS5";
-    std::string input_name = "../../../dataset/GeoNames.txt";
+    std::string input_name = "../../../dataset/DS5";
+    // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
     // std::string input_name = "../../../dataset/in-2004.txt";
     // std::string input_name = "../../../dataset/uk-2005.txt";
@@ -356,7 +356,7 @@ int main() {
     std::vector<std::string> test_keys;                         // 全てのキーに対する検索時間を測定する際に使用
     std::vector<std::vector<std::string>> random_test_keys;     // ランダムに取り出したキーを検索する際に使用
     
-    std::cout << "normal, initial_CPD, remake_CPD, check" << std::endl;
+    std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD" << std::endl;
     std::cout << "上記より選択してください : ";
     std::string input_name;
     std::cin >> input_name;
@@ -374,6 +374,18 @@ int main() {
     } else if(input_name == "check") {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
+        map.call_topo();
+    } else if(input_name == "check_CPD") {
+        auto begin_size = get_process_size();
+        poplar::plain_bonsai_map_check<int> map;
+        Stopwatch sw;
+        std::sort(keys.begin(), keys.end());
+        insert_by_centroid_path_order(keys.begin(), keys.end(), 0, map);
+        auto ram_size = get_process_size() - begin_size;
+        auto time = sw.get_sec();
+        std::cout << "Build time(m): " << time << std::endl;
+        std::cout << "ram_size : " << ram_size << std::endl;
+        std::cout << "capa_size : " << map.capa_size() << std::endl;
         map.call_topo();
     } else if(input_name == "initial_CPD") { // CPD順に入れ替えてから、辞書に格納
         const auto input_num_keys = static_cast<int>(keys.size());
