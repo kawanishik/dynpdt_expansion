@@ -55,9 +55,9 @@ class plain_bonsai_trie_check {
         uint64_t key = make_key_(node_id, symb);
         assert(key != 0);
 
-        int cnt = 0;
+        // int cnt = 0;
         for (uint64_t i = Hasher::hash(key) & capa_size_.mask();; i = right_(i)) {
-            cnt += 1;
+            // cnt += 1;
             if (i == 0) {
                 // table_[0] is always empty so that table_[i] = 0 indicates to be empty.
                 continue;
@@ -71,8 +71,8 @@ class plain_bonsai_trie_check {
             }
             if (table_[i] == key) {
                 // if(symb == 255) { // ダミーノードのみを対象としてするときに
-                    cnt_linear_proving[cnt] += 1;
-                    cnt_linear_proving_all += 1;
+                    // cnt_linear_proving[cnt] += 1;
+                    // cnt_linear_proving_all += 1;
                 // }
                 return i;
             }
@@ -117,6 +117,51 @@ class plain_bonsai_trie_check {
         }
     }
 
+    // 新しい辞書に対して、ノードを追加
+    bool add_child_new_table(uint64_t& node_id, uint64_t symb) {
+        // std::cout << "symb : " << symb << std::endl;
+        // std::cout << "node_id : " << node_id << std::endl;
+        assert(node_id < capa_size_.size());
+        assert(symb < symb_size_.size());
+
+        uint64_t key = make_key_(node_id, symb); // nodeとsymbからキーの作成，node_idは現在のノードID
+        assert(key != 0);
+
+        // int cnt = 0;
+        for (uint64_t i = Hasher::hash(key) & capa_size_.mask();; i = right_(i)) { // iはインクリメントしているだけ，i=(i+1) mod mask，hashはハッシュ関数
+            // cnt += 1;
+            if (i == 0) {
+                // table_[0] is always empty so that any table_[i] = 0 indicates to be empty.
+                continue;
+            }
+
+            if (i == get_root()) {
+                continue;
+            }
+
+            if (new_table_[i] == 0) { // 空き要素を発見
+                // this slot is empty
+                // if (size_ == max_size_) {
+                //     //cnt_compare.clear();
+                //     return false;  // needs to expand
+                // }
+
+                new_table_.set(i, key); // 値の格納
+
+                ++size_;
+                node_id = i;
+
+                //count(cnt);
+                return true;
+            }
+
+            if (new_table_[i] == key) { // 遷移先がある
+                node_id = i;
+                return false;  // already stored
+            }
+        }
+    }
+
     // 二分探索の実装(lower_bound)
     std::pair<bool, uint64_t> BinarySearch(const std::vector<info_fp>& data, uint64_t match) {
         uint64_t size = data.size();
@@ -149,6 +194,7 @@ class plain_bonsai_trie_check {
         std::vector<uint64_t> all_branch(table_size, 0); // 特定のノード以下に何個のノードが存在するのか
 
         // O(n)で、親の位置、子の数(ノード番号も)を数える
+        // 現在はダミーノードの数も計測してしまっている（消す）
         for(uint64_t i=0; i < table_size; i++) {
             if(table_[i] != 0) {
                 auto [p, label] = get_parent_and_symb(i); // 親と遷移情報の取得
@@ -294,6 +340,33 @@ class plain_bonsai_trie_check {
         return node_map;
     }
 
+    void reset_data_() {
+        size_ = 0;
+    }
+
+    void expand_tmp_table() {
+        reset_data_();
+        // capa_size_ = size_p2{capa_bits()+1}; // このコメントアウトを外すと，本来のexpandで使用できるようになる
+        capa_size_ = size_p2{capa_bits()};
+        symb_size_ = size_p2{symb_size_.bits()};
+        max_size_ = static_cast<uint64_t>(capa_size_.size() * MaxFactor / 100.0); // 格納できる最大値を更新
+        new_table_ = compact_vector{capa_size_.size(), capa_size_.bits() + symb_size_.bits()};
+    }
+
+    void move_table() {
+        std::swap(table_, new_table_);
+        new_table_ = {};
+    }
+
+    void set_first_insert(bool flag) {
+        new_table_first_insert = flag;
+    }
+
+    bool checK_first_insert() {
+        if(new_table_first_insert) return true;
+        return false;
+    }
+
     void reset_cnt_compare() {
         std::cout << "--- reset_cnt_linear_proving ---" << std::endl;
         cnt_linear_proving.clear();
@@ -367,6 +440,8 @@ class plain_bonsai_trie_check {
 
   private:
     compact_vector table_;
+    compact_vector new_table_;
+    bool new_table_first_insert = false;
     uint64_t size_ = 0;  // # of registered nodes
     uint64_t max_size_ = 0;  // MaxFactor% of the capacity
     size_p2 capa_size_;

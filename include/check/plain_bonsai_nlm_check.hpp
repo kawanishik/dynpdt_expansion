@@ -42,6 +42,29 @@ class plain_bonsai_nlm_check {
         return {reinterpret_cast<const value_type*>(ptr + key.length()), key.length()};
     }
 
+    // new_ptrsに対する文字列比較
+    std::pair<const value_type*, uint64_t> compare_new_ptrs(uint64_t pos, const char_range& key, const uint64_t start) const {
+        // std::cout << " --- compare_new_ptrs ---" << std::endl;
+        assert(pos < new_ptrs_.size());
+        assert(new_ptrs_[pos]);
+
+        const uint8_t* ptr = new_ptrs_[pos].get();
+
+        if (key.empty()) {
+            return {reinterpret_cast<const value_type*>(ptr), 0};
+        }
+
+        for (uint64_t i = 0; i < key.length(); ++i) {
+            //std::cout << key[i] << ", " << ptr[i] << ", " << i << std::endl;
+            if (key[i] != ptr[start+i]) {
+                //std::cout << key[i] << ", " << ptr[i] << std::endl;
+                return {nullptr, start+i}; // iは間違えた箇所
+            }
+        }
+
+        return {reinterpret_cast<const value_type*>(ptr + key.length()), key.length()};
+    }
+
     value_type* insert(uint64_t pos, const char_range& key) {
         assert(!ptrs_[pos]);
 
@@ -65,6 +88,37 @@ class plain_bonsai_nlm_check {
         return ret;
     }
 
+    value_type* insert_new_table(uint64_t pos, const char_range& key) {
+        //std::cout << "--- insert ---" << std::endl;
+        assert(!new_ptrs_[pos]);
+        ++size_;
+
+        uint64_t length = key.length();
+        // std::cout << "length : " << length << std::endl;
+        // std::cout << "pos : " << pos << std::endl;
+        new_ptrs_[pos] = std::make_unique<uint8_t[]>(length + sizeof(value_type));
+        auto ptr = new_ptrs_[pos].get();    // unique_ptr::get() : 保持しているポインタを返す
+        copy_bytes(ptr, key.begin, length); // ptrの先頭からにkeyを長さlength分，コピーする
+
+// #ifdef POPLAR_EXTRA_STATS
+//         max_length_ = std::max(max_length_, length);
+//         sum_length_ += length;
+// #endif
+
+        auto ret = reinterpret_cast<value_type*>(ptr + length);
+        *ret = static_cast<value_type>(0);
+
+        return ret;
+    }
+
+    void reset_data_() {
+        size_ = 0;
+    }
+
+    uint8_t* return_string(uint64_t pos) const {
+        return ptrs_[pos].get();
+    }
+
     template <typename T>
     void expand(const T& pos_map) {
         std::vector<std::unique_ptr<uint8_t[]>> new_ptrs(ptrs_.size() * 2);
@@ -74,6 +128,15 @@ class plain_bonsai_nlm_check {
             }
         }
         ptrs_ = std::move(new_ptrs);
+    }
+
+    void expand_tmp_ptrs() {
+        new_ptrs_.resize(ptrs_.size());
+    }
+
+    void move_ptrs() {
+        std::swap(ptrs_, new_ptrs_);
+        new_ptrs_ = decltype(new_ptrs_)();
     }
 
     uint64_t size() const {
@@ -109,6 +172,7 @@ class plain_bonsai_nlm_check {
 
   private:
     std::vector<std::unique_ptr<uint8_t[]>> ptrs_;
+    std::vector<std::unique_ptr<uint8_t[]>> new_ptrs_;
     uint64_t size_ = 0;
     uint64_t label_bytes_ = 0;
 #ifdef POPLAR_EXTRA_STATS

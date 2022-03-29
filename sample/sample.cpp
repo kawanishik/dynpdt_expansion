@@ -152,8 +152,8 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
-    std::string input_name = "../../../dataset/DS5";
+    std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
     // std::string input_name = "../../../dataset/in-2004.txt";
@@ -183,19 +183,19 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
         keys.push_back(s);
     }
 
-    // std::string test_name = "../../../dataset/test_enwiki.txt";
-    // // std::string test_name = "../../../dataset/test_DS5.txt";
-    // // std::string test_name = "../../../dataset/test_GeoNames.txt";
-    // // std::string test_name = "../../../dataset/test_AOL.txt";
-    // std::ifstream tfs(test_name);
-    // if (!tfs) {
-    //     std::cerr << "File not found input file: "<< test_name << std::endl;
-    //     exit(0);
-    // }
-    // std::cout << "dataset : " << test_name.substr(17) << std::endl;
-    // for (std::string s; std::getline(tfs, s); ) {
-    //     test_keys.push_back(s);
-    // }
+    std::string test_name = "../../../dataset/test_enwiki.txt";
+    // std::string test_name = "../../../dataset/test_DS5.txt";
+    // std::string test_name = "../../../dataset/test_GeoNames.txt";
+    // std::string test_name = "../../../dataset/test_AOL.txt";
+    std::ifstream tfs(test_name);
+    if (!tfs) {
+        std::cerr << "File not found input file: "<< test_name << std::endl;
+        exit(0);
+    }
+    std::cout << "dataset : " << test_name.substr(17) << std::endl;
+    for (std::string s; std::getline(tfs, s); ) {
+        test_keys.push_back(s);
+    }
 
     // test_name = "../../../dataset/random_test_enwiki.txt";
     // // test_name = "../../../dataset/random_test_DS5.txt";
@@ -307,7 +307,7 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     std::cout << "input_num_keys : " << input_num_keys << std::endl;
     const auto test_num_keys = static_cast<int>(test_keys.size());
     std::cout << "test_num_keys : " << test_num_keys << std::endl;
-    const auto random_test_num_keys = static_cast<int>(test_keys.size());
+    const auto random_test_num_keys = static_cast<int>(random_test_keys.size());
     std::cout << "random_test_num_keys : " << random_test_num_keys << std::endl;
     auto begin_size = get_process_size();
 
@@ -343,11 +343,32 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 
     // map.reset_cnt_hash();
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
     // std::cout << "time_search : " << search_time << std::endl;
+}
+
+// 作成したCP入れ替えを複数回試す
+template<class Map>
+void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
+    std::cout << "--- multi_CP_swap ---" << std::endl;
+    uint64_t input_num_keys = keys.size();
+    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    std::cout << "time_search : " << search_time << std::endl;
+    Stopwatch sw;
+    map.call_topo();
+    double time = sw.get_milli_sec();
+    std::cout << "time : " << time << std::endl;
+    search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    std::cout << "time_search : " << search_time << std::endl;
+    Stopwatch sw2;
+    map.call_topo();
+    time = sw2.get_milli_sec();
+    std::cout << "time : " << time << std::endl;
+    search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    std::cout << "time_search : " << search_time << std::endl;
 }
 
 int main() {
@@ -374,7 +395,8 @@ int main() {
     } else if(input_name == "check") {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        map.call_topo();
+        // map.call_topo();
+        multi_CP_swap(map, keys, test_keys);
     } else if(input_name == "check_CPD") {
         auto begin_size = get_process_size();
         poplar::plain_bonsai_map_check<int> map;
