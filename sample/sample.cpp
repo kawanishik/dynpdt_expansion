@@ -354,21 +354,28 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 template<class Map>
 void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
     std::cout << "--- multi_CP_swap ---" << std::endl;
-    uint64_t input_num_keys = keys.size();
-    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
-    std::cout << "time_search : " << search_time << std::endl;
+    // uint64_t input_num_keys = keys.size();
+    // map.reset_cnt_hash();
+    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // map.show_cnt_hash();
+    // std::cout << "time_search : " << search_time << std::endl;
     Stopwatch sw;
     map.call_topo();
+    // map.call_restore_string_CP();
     double time = sw.get_milli_sec();
-    std::cout << "time : " << time << std::endl;
-    search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    std::cout << "time : " << time / 1000.0 << std::endl;
+    map.reset_cnt_hash();
+    double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
-    Stopwatch sw2;
-    map.call_topo();
-    time = sw2.get_milli_sec();
-    std::cout << "time : " << time << std::endl;
-    search_time = CalcSearchSpeed(map, keys, input_num_keys);
-    std::cout << "time_search : " << search_time << std::endl;
+    // Stopwatch sw2;
+    // map.call_topo();
+    // time = sw2.get_milli_sec();
+    // std::cout << "time : " << time << std::endl;
+    // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // std::cout << "time_search : " << search_time << std::endl;
+
 }
 
 int main() {
@@ -414,7 +421,7 @@ int main() {
         std::cout << "input_num_keys : " << input_num_keys << std::endl;
         const auto test_num_keys = static_cast<int>(test_keys.size());
         std::cout << "test_num_keys : " << test_num_keys << std::endl;
-        const auto random_test_num_keys = static_cast<int>(test_keys.size());
+        const auto random_test_num_keys = static_cast<int>(random_test_keys.size());
         std::cout << "random_test_num_keys : " << random_test_num_keys << std::endl;
 
         auto begin_size = get_process_size();
@@ -447,11 +454,11 @@ int main() {
         std::cout << "ram_size : " << ram_size << std::endl;
         std::cout << "capa_size : " << map.capa_size() << std::endl;
         
-        // map.reset_cnt_hash();
-        // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-        auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
+        map.reset_cnt_hash();
+        auto search_time = AllDatasetSearchSpeed(map, test_keys);
+        // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);
         // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
-        // map.show_cnt_hash();
+        map.show_cnt_hash();
         std::cout << "time_search : " << search_time << std::endl;
     } else {
         std::cout << "そのようなデータセットは存在しません" << std::endl;

@@ -115,7 +115,7 @@ class plain_bonsai_nlm_check {
         size_ = 0;
     }
 
-    uint8_t* return_string(uint64_t pos) const {
+    uint8_t* return_string_pointer(uint64_t pos) const {
         return ptrs_[pos].get();
     }
 
@@ -132,6 +132,13 @@ class plain_bonsai_nlm_check {
 
     void expand_tmp_ptrs() {
         new_ptrs_.resize(ptrs_.size());
+    }
+
+    void expand_restore_string() {
+        std::vector<std::unique_ptr<uint8_t[]>> new_ptrs(ptrs_.size());
+        ptrs_ = std::move(new_ptrs);
+        size_ = 0;
+        label_bytes_ = 0;
     }
 
     void move_ptrs() {

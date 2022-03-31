@@ -4,6 +4,7 @@
 #include <array>
 #include <iostream>
 #include <queue>
+#include <deque>
 #include <algorithm>
 
 #include "../poplar/bit_tools.hpp"
@@ -275,7 +276,7 @@ class map_check {
             *ptr = 1;
             // std::cout << "insert_key : " << insert_key << std::endl;
         } else {
-            auto fs = label_store_.return_string(node_id);
+            auto fs = label_store_.return_string_pointer(node_id);
             if(fs == nullptr) return;
             std::string insert_key = restore_insert_string(node_id);
             // std::cout << "insert : " << insert_key << std::endl;
@@ -370,7 +371,7 @@ class map_check {
         std::string insert_string = ""; // ここに文字列を格納して、新しい辞書に挿入する
 
         // とりあえず、文字列を復元する
-        auto fs = label_store_.return_string(node_id);
+        auto fs = label_store_.return_string_pointer(node_id);
         if(fs == nullptr) return insert_string;
         for(uint64_t i=0;; i++) {
             if(fs[i] == 0x00) break;
@@ -386,7 +387,7 @@ class map_check {
 
             uint64_t dummy_step = 0; // ダミーノードの数を数える
             while(1) {
-                fs = label_store_.return_string(parent);
+                fs = label_store_.return_string_pointer(parent);
                 if(fs == nullptr) {
                     dummy_step++;
                     auto [tmp1, tmp2] = hash_trie_.get_parent_and_symb(parent);
@@ -399,7 +400,7 @@ class map_check {
             match += dummy_step * lambda_; // スキップした回数分足してあげる
 
             if(match != 0) {
-                fs = label_store_.return_string(parent);
+                fs = label_store_.return_string_pointer(parent);
                 std::string tmp_str = "";
                 for(uint64_t j=0; j < match; j++) {
                     tmp_str += fs[j];
@@ -457,6 +458,139 @@ class map_check {
         //     }
         // }
         // hash_trie_.show_cnt_compare();
+    }
+
+    void restore_string(std::vector<std::string>& keys) {
+        std::vector<std::string> part_keys(hash_trie_.capa_size()); // 部分的な文字列を保存しておく
+        
+        uint64_t first_node = hash_trie_.get_root();
+        std::string restore_str;
+
+        // 先頭ノードに対する処理
+        auto fs = label_store_.return_string_pointer(first_node);
+        for(uint64_t i=0;;i++) {
+            if(fs[i] == 0x00) break; // 判定処理としてint型で4つ分使用して1を格納しているので、この判定
+            restore_str += fs[i];
+        }
+        keys.push_back(restore_str);
+
+        // 先頭ノード以外のノードに対する処理
+        for(int i=first_node+1; i < hash_trie_.capa_size(); i++) {
+            // ハッシュテーブルが使用されている → 終端となる文字列が存在(ダミーノードを除いて)
+            if(!hash_trie_.is_use_table(i)) continue;
+
+            uint64_t node_id = i;
+            restore_str.clear();
+            std::deque<uint64_t> save_route;
+            auto str = label_store_.return_string_pointer(node_id); // ダミーノードで遷移した際には、中身が何もないのでcontinue
+            if(str == nullptr) continue;
+            for(uint64_t j=0;;j++) {
+                if(str[j] == 0x00) break;   // 最後にint型の1が格納されていることを利用する
+                restore_str += str[j];
+            }
+            while(node_id != first_node) {
+                auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+                auto [c, match] = restore_symb_(symb); // symbから、遷移に失敗した箇所とlabelを取得する
+                restore_str = c + restore_str; // 遷移文字を追加
+                
+                uint64_t dummy_step = 0; // ダミーノード数をカウント
+                while(1) { // 親がダミーノードの場合の処理
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    if(str1 == nullptr) {
+                        dummy_step++;
+                        auto [parent_tmp, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                        parent = parent_tmp;
+                    } else {
+                        break;
+                    }
+                }
+                match += dummy_step * lambda_; // スキップした回数分足してあげる
+
+                // 親ノードの文字列からmatchまでを抜き出し、追加する
+                if(match != 0) { // matchがゼロの時は、文字列比較の一文字目で遷移しているので
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    std::string str2 = "";
+                    for(uint64_t j=0; j < match; j++) {
+                        str2 += str1[j];
+                    }
+                    restore_str = str2 + restore_str;
+                    part_keys[node_id] = str2 + c;
+                } else {
+                    part_keys[node_id] = c;
+                }
+                save_route.push_back(node_id);
+                node_id = parent;
+                if(part_keys[node_id].size() != 0) { // 一度、通ったことのあるノードだった場合
+                    restore_str = part_keys[node_id] + restore_str;
+                    break;
+                }
+            }
+            // part_keysの格納
+            while(!save_route.empty()) {
+                uint64_t node = save_route.back();
+                save_route.pop_back();
+                part_keys[node] = part_keys[node_id] + part_keys[node];
+                node_id = node;
+            }
+            keys.push_back(restore_str);
+        }
+    }
+
+    void reset() {
+        size_ = 0;
+        for(int i=0; i < 256; i++) {
+            codes_[i] = static_cast<uint8_t>(UINT8_MAX);
+            restore_codes_[i] = static_cast<uint8_t>(UINT8_MAX);
+        }
+        num_codes_ = 0;
+        codes_[0] = static_cast<uint8_t>(num_codes_++);
+    }
+
+    // 再配置するための関数
+    template <class It>
+    void insert_by_centroid_path_order(It begin, It end, int depth) {
+        assert(end-begin > 0);
+        if (end-begin == 1) {
+            int* ptr = update(*begin);
+            *ptr = 1;
+            return;
+        }
+        std::vector<std::tuple<It,It,char>> ranges;
+        auto from = begin;
+        auto to = begin;
+        if (from->length() == depth) {
+            ranges.emplace_back(from, ++to, '\0');
+            from = to;
+        }
+        while (from != end) {
+            assert(from->length() > depth);
+            char c = (*from)[depth];
+            while (to != end and (*to)[depth] == c) {
+                ++to;
+            }
+            ranges.emplace_back(from, to, c);
+            from = to;
+        }
+        std::sort(ranges.begin(), ranges.end(), [](auto l, auto r) {
+            auto [fl,tl,cl] = l;
+            auto [fr,tr,cr] = r;
+            return tl-fl > tr-fr;
+        });
+        for (auto [f,t,c] : ranges) {
+            insert_by_centroid_path_order(f, t, depth+1);
+        }
+    }
+
+    void call_restore_string_CP() {
+        std::cout << "--- call_restore_string_CP ---" << std::endl;
+        std::vector<std::string> restore_keys;
+        restore_string(restore_keys);
+        std::cout << hash_trie_.capa_size() << ", " << label_store_.num_ptrs() << std::endl;
+        sort(restore_keys.begin(), restore_keys.end()); // 取得した文字列をソートする
+        hash_trie_.expand_restore_string();
+        label_store_.expand_restore_string();
+        reset();
+        insert_by_centroid_path_order(restore_keys.begin(), restore_keys.end(), 0); // 新しい辞書にCP順で格納する
     }
 
     // Gets the number of registered keys.

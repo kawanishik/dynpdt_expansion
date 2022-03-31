@@ -340,6 +340,11 @@ class plain_bonsai_trie_check {
         return node_map;
     }
 
+    bool is_use_table(uint64_t i) {
+        if(table_[i] == 0) return false;
+        return true;
+    }
+
     void reset_data_() {
         size_ = 0;
     }
@@ -351,6 +356,12 @@ class plain_bonsai_trie_check {
         symb_size_ = size_p2{symb_size_.bits()};
         max_size_ = static_cast<uint64_t>(capa_size_.size() * MaxFactor / 100.0); // 格納できる最大値を更新
         new_table_ = compact_vector{capa_size_.size(), capa_size_.bits() + symb_size_.bits()};
+    }
+
+    void expand_restore_string() {
+        reset_data_();
+        plain_bonsai_trie_check new_ht{capa_bits(), symb_size_.bits()};
+        std::swap(*this, new_ht);
     }
 
     void move_table() {
