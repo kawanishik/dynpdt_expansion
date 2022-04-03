@@ -419,11 +419,107 @@ class map_check {
         label_store_.reset_data_();
     }
 
+    // trie.hppに書いてあった処理をこちらで行う
+    // 二分探索の実装(lower_bound)
+    std::pair<bool, uint64_t> BinarySearch(const std::vector<info_fp>& data, uint64_t match) {
+        uint64_t size = data.size();
+        if(size == 0) return {false, 0};
+        int64_t left = 0;
+        int64_t right = size - 1;
+        int64_t mid;
+        while(left <= right) {
+            mid = (left + right) / 2;
+            if(data[mid].match == match) {
+                return {true, mid};
+            } else if(data[mid].match > match) {
+                right = mid - 1;
+            } else {
+                left = mid + 1;
+            }
+        }
+        return {false, uint64_t(left)};
+    }
+
+    // CP順を求めるために部分的な情報を求める
+    std::tuple<std::vector<std::vector<info_fp>>, std::vector<uint64_t>, std::vector<bool>> return_partial_CP_info() {
+        // std::cout << "--- return_partial_CP_info ---" << std::endl;
+        uint64_t table_size = hash_trie_.capa_size();
+        std::vector<parent_info> parent(table_size);
+        std::vector<uint64_t> partial_num(table_size, 0);       // 子の数を格納するための配列(自身の数も含む)
+        
+        std::vector<std::vector<info_fp>> fork_pos(table_size); // std::vector<std::vector<std::pair<uint64_t, uint64_t>>> fork_pos(table_size); // それぞれの分岐位置で個数を求めるためのもの(分岐位置)
+        std::vector<uint64_t> cnt_leaf(table_size, 0);          // それぞれのノードから繋がっている葉ノードの数をカウント
+        std::vector<uint64_t> all_branch(table_size, 0);        // 特定のノード以下に何個のノードが存在するのか
+
+        // O(n)で、親の位置、子の数(ノード番号も)を数える
+        // 現在はダミーノードの数も計測してしまっている（消す）
+        for(uint64_t i=0; i < table_size; i++) {
+            if(hash_trie_.is_use_table(i) != 0) {
+                auto [p, label] = hash_trie_.get_parent_and_symb(i);                            // 親と遷移情報の取得
+                if(label == 255) continue;                                                      // ダミーノードをスキップ
+                auto [c, match] = std::pair{uint8_t(restore_codes_[label % 256]), label/256};   // 遷移文字と分岐位置を取得
+                while(1) { // 親がダミーノードの時の処理
+                    // label_store_からポインタを参照
+                    auto string_pointer = label_store_.return_string_pointer(p);
+                    if(string_pointer != nullptr) break;
+                    // ダミーノードの時上の処理を繰り返す
+                    auto [tmp_parent, tmp_label] = hash_trie_.get_parent_and_symb(p);
+                    match += lambda_;
+                    p = tmp_parent;
+                }
+                partial_num[i] += 1; // 自身の数をカウントする
+                partial_num[p] += 1; // 子から親の数をカウントする
+                parent[i].parent = p;
+                parent[i].match = match;
+                parent[i].c = c;
+            }
+        }
+
+        // queueを使用して、一番下のものから処理していく(CPを求める)
+        std::queue<uint64_t> que;
+        std::vector<bool> check_bottom(table_size, false);
+        // 対象のデータを集めてくる
+        for(uint64_t i=0; i < table_size; i++) {
+            if(partial_num[i] == 1) {
+                que.push(i);
+                check_bottom[i] = true;
+            }
+        }
+        check_bottom[hash_trie_.get_root()] = true; // 先頭文字列も底とした方が計算しやすいため
+        while(!que.empty()) { // 追加された順に処理
+            uint64_t q = que.front();
+            que.pop();
+            auto [node_id, match, c] = parent[q];
+            if(c != 0) cnt_leaf[q] += 1; // ダミーノード以外のとき、加算
+            uint64_t p = node_id;
+            cnt_leaf[p] += cnt_leaf[q];
+            if(match != 0) all_branch[p] += cnt_leaf[q];    // match=0は、親ノードからの分岐位置が同じことを示している
+            // fork_posに対して、分岐の位置に対して、葉がいくつあるのかをカウント
+            // ソートした状態を保つために、このような処理をしている
+            auto [flag, pos] = BinarySearch(fork_pos[p], match);    // matchの失敗位置が以前に存在していたのかなど
+            if(flag) {
+                fork_pos[p][pos].cnt += cnt_leaf[q];
+                fork_pos[p][pos].children.push_back({q, cnt_leaf[q]});
+            } else {
+                fork_pos[p].insert(fork_pos[p].begin()+pos, info_fp{match, cnt_leaf[q]});
+                fork_pos[p][pos].children.push_back({q, cnt_leaf[q]});
+            }
+
+            partial_num[p]--;
+            if(partial_num[p] == 1) { // 子供の処理がすべて終了すると追加
+                que.push(p);
+            }
+        }
+
+        return std::tuple{fork_pos, all_branch, check_bottom};
+    }
+
     // トポロジカルソートを呼び出す
     void call_topo() {
         std::cout << "--- call_topo ---" << std::endl;
         
-        auto [fork_info, blanch_num, check_bottom] = hash_trie_.return_partial_CP_info(restore_codes_); // 
+        // auto [fork_info, blanch_num, check_bottom] = hash_trie_.return_partial_CP_info(restore_codes_); // trie.hppで計算
+        auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info(); // map.hppで計算
         std::cout << "size : " << fork_info.size() << std::endl;
 
         // fork_infoの情報を元に、CP順を求め、新しい辞書に格納していく
