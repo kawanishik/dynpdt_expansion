@@ -355,17 +355,18 @@ template<class Map>
 void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
     std::cout << "--- multi_CP_swap ---" << std::endl;
     // uint64_t input_num_keys = keys.size();
-    map.reset_cnt_hash();
-    double search_time = AllDatasetSearchSpeed(map, test_keys);
-    // search_time = CalcSearchSpeed(map, keys, input_num_keys);
-    map.show_cnt_hash();
-    std::cout << "time_search : " << search_time << std::endl;
-    for(int i=0; i < -1; i++) {
+    // map.reset_cnt_hash();
+    // double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // map.show_cnt_hash();
+    // std::cout << "time_search : " << search_time << std::endl;
+    for(int i=0; i < 1; i++) {
         Stopwatch sw;
         map.call_topo();
+        // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
-        if(i == 2) {
+        if(i == -1) {
             map.reset_cnt_hash();
             double search_time = AllDatasetSearchSpeed(map, test_keys);
             // search_time = CalcSearchSpeed(map, keys, input_num_keys);
