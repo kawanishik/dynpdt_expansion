@@ -183,19 +183,19 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
         keys.push_back(s);
     }
 
-    // std::string test_name = "../../../dataset/test_enwiki.txt";
-    // // std::string test_name = "../../../dataset/test_DS5.txt";
-    // // std::string test_name = "../../../dataset/test_GeoNames.txt";
-    // // std::string test_name = "../../../dataset/test_AOL.txt";
-    // std::ifstream tfs(test_name);
-    // if (!tfs) {
-    //     std::cerr << "File not found input file: "<< test_name << std::endl;
-    //     exit(0);
-    // }
-    // std::cout << "dataset : " << test_name.substr(17) << std::endl;
-    // for (std::string s; std::getline(tfs, s); ) {
-    //     test_keys.push_back(s);
-    // }
+    std::string test_name = "../../../dataset/test_enwiki.txt";
+    // std::string test_name = "../../../dataset/test_DS5.txt";
+    // std::string test_name = "../../../dataset/test_GeoNames.txt";
+    // std::string test_name = "../../../dataset/test_AOL.txt";
+    std::ifstream tfs(test_name);
+    if (!tfs) {
+        std::cerr << "File not found input file: "<< test_name << std::endl;
+        exit(0);
+    }
+    std::cout << "dataset : " << test_name.substr(17) << std::endl;
+    for (std::string s; std::getline(tfs, s); ) {
+        test_keys.push_back(s);
+    }
 
     // test_name = "../../../dataset/random_test_enwiki.txt";
     // // test_name = "../../../dataset/random_test_DS5.txt";
