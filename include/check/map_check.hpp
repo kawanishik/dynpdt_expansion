@@ -290,6 +290,13 @@ class map_check {
         // std::cout << "end" << std::endl;
     }
 
+    void insert_new_dic_using_middle_string(uint64_t node_id, std::vector<std::string>& part_keys) {
+        // std::cout << "--- insert_new_dic ---" << std::endl;
+        std::string insert_key = restore_insert_string_using_middle_string(node_id, part_keys);
+        int* ptr = update_new(make_char_range(insert_key), hash_trie_.get_root(), 0); // 先頭から比較
+        *ptr = 1;
+    }
+
     // centroid_path_を求めて、新しい辞書に格納する
     void require_centroid_path_order_and_insert_dictionaly(std::vector<std::vector<info_fp>>& fp,
                                                             uint64_t node_id,
@@ -311,17 +318,7 @@ class map_check {
             // bnを使用している理由は、累積和の時間を省略するため
             if(fp[node_id][0].cnt > bn[node_id]) {
                 // それぞれの子を持ってくる、その中から、cntが多い順に処理する
-                // 下のshelterに格納する部分を時間短縮できそう(here)
-                std::sort(fp[node_id][0].children.begin(), fp[node_id][0].children.end(), [] (auto l, auto r) {
-                    return l.second > r.second;
-                });
-                for(auto s : fp[node_id][0].children) {
-                    require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
-                    insert_new_dic(s.first, check_bottom[s.first], compare_str);
-                }
-
-                // 1分岐以上の処理
-                for(uint64_t i=1; i < fp[node_id].size(); i++) {
+                for(uint64_t i=0; i < fp[node_id].size(); i++) {
                     std::sort(fp[node_id][i].children.begin(), fp[node_id][i].children.end(), [] (auto l, auto r) {
                         return l.second > r.second;
                     });
@@ -331,25 +328,15 @@ class map_check {
                     }
                 }
             } else { // 最後に0分岐を処理する
-                // 1分岐以上の処理
-                // std::vector<std::pair<uint64_t, uint64_t>> shelter;
-                for(uint64_t i=1; i < fp[node_id].size(); i++) {
-                    std::sort(fp[node_id][i].children.begin(), fp[node_id][i].children.end(), [] (auto l, auto r) {
+                for(uint64_t i=0; i < fp[node_id].size(); i++) {
+                    uint64_t pos = (i + 1) % fp[node_id].size();
+                    std::sort(fp[node_id][pos].children.begin(), fp[node_id][pos].children.end(), [] (auto l, auto r) {
                         return l.second > r.second;
                     });
-                    for(auto s : fp[node_id][i].children) {
+                    for(auto s : fp[node_id][pos].children) {
                         require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
                         insert_new_dic(s.first, check_bottom[s.first], compare_str);
                     }
-                }
-
-                // 0分岐の処理
-                std::sort(fp[node_id][0].children.begin(), fp[node_id][0].children.end(), [] (auto l, auto r) {
-                    return l.second > r.second;
-                });
-                for(auto s : fp[node_id][0].children) {
-                    require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
-                    insert_new_dic(s.first, check_bottom[s.first], compare_str);
                 }
             }
         } else { // 0分岐がないとき
@@ -375,60 +362,101 @@ class map_check {
                                                             const std::vector<uint64_t>& blanch_num_except_zero,
                                                             const std::vector<uint64_t>& cnt_leaf,
                                                             const std::vector<bool>& check_bottom,
+                                                            // std::vector<std::string>& part_keys) {
                                                             std::string& compare_str) {
         if(children[node_id].size() == 0) { // 一番下まで、たどり着いた時の処理
             return;
         }
-        std::vector<std::pair<uint64_t, uint64_t>> children_shelter;
+        std::vector<std::pair<uint64_t, uint64_t>> children_shelter; // first:match, second:cnt_leaf[]
+        std::map<uint64_t, uint64_t> start_pos; // children[node_id]内のmatchのスタート位置を保存
         uint64_t pre_match = UINT64_MAX;
         uint64_t zero_blanch_num = 0;
-        uint64_t except_zero_blanch_num = blanch_num_except_zero[node_id];
-        for(auto child : children[node_id]) {
+        uint64_t children_size = children[node_id].size();
+
+        for(uint64_t i=0; i < children_size; i++) {
+            std::pair<uint64_t, uint64_t> child = children[node_id][i];
             if(child.first != pre_match) {
                 children_shelter.push_back(std::pair{child.first, cnt_leaf[child.second]});
                 pre_match = child.first;
+                start_pos[pre_match] = i + 1;
                 if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
             } else {
                 children_shelter[children_shelter.size()-1].second += cnt_leaf[child.second];
                 if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
             }
         }
-        // for(auto sh : shelter) std::cout << sh.first << " : " << sh.second << std::endl;
 
-        bool check_zero = (zero_blanch_num == 0 ? false : true);
-        if(check_zero) {    // zero分岐が存在するとき
+        bool check_zero = (blanch_num_except_zero[node_id] == 0 ? false : true);
+        if(check_zero) {
+            // 分岐後の葉の数が多い順にソート
             std::sort(children_shelter.begin()+1, children_shelter.end(), [] (auto l, auto r) {
                 return l.second > r.second;
             });
-            // for(auto sh : children_shelter) std::cout << sh.first << " : " << sh.second << std::endl;s
-            std::cout << zero_blanch_num << ", " << except_zero_blanch_num << std::endl;
-            if(zero_blanch_num > except_zero_blanch_num) { // zero分岐から最初に処理する
+            if(zero_blanch_num > blanch_num_except_zero[node_id]) { // zero分岐から最初に処理する
                 // 子ノード以降のノード数をカウントし、その後、大きい順に再帰関数
-                uint64_t children_size = children[node_id].size();
-                std::vector<std::pair<uint64_t, uint64_t>> grandchild_shelter; // first:cnt_leaf[], second:next_id
-                uint64_t pos = 0; // children内の現在場所
-                pre_match = 0;
-                for(uint64_t pos=0; pos < children_size; pos++) {
-                    if(children[node_id][pos].first != pre_match) {
-                        pre_match = children[node_id][pos].first;
-                        break;
+                for(uint64_t i=0; i < children_shelter.size(); i++) {
+                    std::vector<std::pair<uint64_t, uint64_t>> grandchild_shelter; // first:cnt_leaf[], second:next_id
+                    pre_match = children_shelter[i].first; // zero分岐を調べているから
+                    for(uint64_t pos=start_pos[pre_match]-1; pos < children_size; pos++) {
+                        if(pre_match != children[node_id][pos].first) break;
+                        uint64_t next_id = children[node_id][pos].second;
+                        grandchild_shelter.push_back({cnt_leaf[next_id], next_id});
                     }
+                    std::sort(grandchild_shelter.begin(), grandchild_shelter.end(), [] (auto l, auto r) {
+                        return l.first > r.first;
+                    });
+                    for(auto& s : grandchild_shelter) {
+                        require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
+                        insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                        // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
+                        // insert_new_dic_using_middle_string(s.second, part_keys);
+                    }
+                }
+            } else { // 最後にzero分岐を処理する
+                for(uint64_t i=0; i < children_shelter.size(); i++) {
+                    std::vector<std::pair<uint64_t, uint64_t>> grandchild_shelter; // first:cnt_leaf[], second:next_id
+                    pre_match = children_shelter[(i+1) % children_shelter.size()].first; // zero分岐を調べているから
+                    for(uint64_t pos=start_pos[pre_match]-1; pos < children_size; pos++) {
+                        if(pre_match != children[node_id][pos].first) break;
+                        uint64_t next_id = children[node_id][pos].second;
+                        grandchild_shelter.push_back({cnt_leaf[next_id], next_id});
+                    }
+                    std::sort(grandchild_shelter.begin(), grandchild_shelter.end(), [] (auto l, auto r) {
+                        return l.first > r.first;
+                    });
+                    for(auto& s : grandchild_shelter) {
+                        require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
+                        insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                        // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
+                        // insert_new_dic_using_middle_string(s.second, part_keys);
+                    }
+                }
+            }
+        } else {
+            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
+                return l.second > r.second;
+            });
+            for(uint64_t i=0; i < children_shelter.size(); i++) {
+                std::vector<std::pair<uint64_t, uint64_t>> grandchild_shelter; // first:cnt_leaf[], second:next_id
+                pre_match = children_shelter[i].first; // zero分岐を調べているから
+                for(uint64_t pos=start_pos[pre_match]-1; pos < children_size; pos++) {
+                    if(pre_match != children[node_id][pos].first) break;
                     uint64_t next_id = children[node_id][pos].second;
                     grandchild_shelter.push_back({cnt_leaf[next_id], next_id});
                 }
                 std::sort(grandchild_shelter.begin(), grandchild_shelter.end(), [] (auto l, auto r) {
                     return l.first > r.first;
                 });
-                // 0分岐以外の処理をする
-                grandchild_shelter.clear();
-            } else {
-
+                for(auto& s : grandchild_shelter) {
+                    require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
+                    insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                    // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
+                    // insert_new_dic_using_middle_string(s.second, part_keys);
+                }
             }
-        } else { // zero分岐が存在しないとき(先頭から順に処理していくだけでよい)
-            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
-                return l.second > r.second;
-            });
         }
+        if(node_id == hash_trie_.get_root()) insert_new_dic(node_id, check_bottom[node_id], compare_str);
+        // if(node_id == hash_trie_.get_root()) insert_new_dic_using_middle_string(node_id, part_keys);
     }
 
     // 特定のノードから、get_root()までの文字列を復元する
@@ -474,6 +502,62 @@ class map_check {
             }
 
             node_id = parent;
+        }
+        return insert_string;
+    }
+
+    // 特定のノードに対応する文字列を復元するのは同じ
+    // 途中の部分を保存しておく
+    std::string restore_insert_string_using_middle_string(uint64_t node_id, std::vector<std::string>& part_keys) {
+        std::string insert_string = "";
+        std::deque<uint64_t> save_route;
+        auto str_pointer = label_store_.return_string_pointer(node_id);
+        for(uint64_t i=0;; i++) {
+            if(str_pointer[i] == 0x00) break;
+            insert_string += str_pointer[i];
+        }
+        while(node_id != hash_trie_.get_root()) {
+            auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id);
+            auto [c, match] = restore_symb_(symb);
+            insert_string = c + insert_string;
+
+            uint64_t dummy_step = 0;
+            while(1) { // 親がダミーノードの場合の処理
+                auto str1 = label_store_.return_string_pointer(parent);
+                if(str1 == nullptr) {
+                    dummy_step++;
+                    auto [parent_tmp, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                    parent = parent_tmp;
+                } else {
+                    break;
+                }
+            }
+            match += dummy_step * lambda_;
+            
+            if(match != 0) { // matchがゼロの時は、文字列比較の一文字目で遷移しているので
+                auto str1 = label_store_.return_string_pointer(parent);
+                std::string str2 = "";
+                for(uint64_t j=0; j < match; j++) {
+                    str2 += str1[j];
+                }
+                insert_string = str2 + insert_string;
+                part_keys[node_id] = str2 + c;
+            } else {
+                part_keys[node_id] = c;
+            }
+            save_route.push_back(node_id);
+            node_id = parent;
+             if(part_keys[node_id].size() != 0) { // 一度、通ったことのあるノードだった場合
+                insert_string = part_keys[node_id] + insert_string;
+                break;
+            }
+        }
+        // part_keysの格納
+        while(!save_route.empty()) {
+            uint64_t node = save_route.back();
+            save_route.pop_back();
+            part_keys[node] = part_keys[node_id] + part_keys[node];
+            node_id = node;
         }
         return insert_string;
     }
@@ -762,6 +846,10 @@ class map_check {
                     all_branch[pp] += cnt_leaf[q];
                 }
             }
+            partial_num[p]--;
+            if(partial_num[p] == 1) { // 子供の処理がすべて終了すると追加
+                que.push(p);
+            }
         }
     }
 
@@ -781,15 +869,17 @@ class map_check {
         std::cout << "size : " << children.size() << std::endl;
 
         // fork_infoの情報を元に、CP順を求め、新しい辞書に格納していく
-        // data_reset();
-        // hash_trie_.expand_tmp_table();
-        // label_store_.expand_tmp_ptrs();
+        data_reset();
+        hash_trie_.expand_tmp_table();
+        label_store_.expand_tmp_ptrs();
         std::string compare_str = "";
         // require_centroid_path_order_and_insert_dictionaly(fork_info, hash_trie_.get_root(), blanch_num, check_bottom, compare_str);
+        // std::vector<std::string> part_keys(hash_trie_.capa_size());
+        // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, part_keys);
         require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, compare_str);
-        // hash_trie_.move_table();    // 辞書の移動
-        // label_store_.move_ptrs();
-        // hash_trie_.set_first_insert(false);
+        hash_trie_.move_table();    // 辞書の移動
+        label_store_.move_ptrs();
+        hash_trie_.set_first_insert(false);
 
         // 特定の深さからの線形探索回数を調べる
         // hash_trie_.reset_cnt_compare();
