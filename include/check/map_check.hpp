@@ -385,7 +385,7 @@ class map_check {
                 if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
             }
         }
-
+復元
         bool check_zero = (blanch_num_except_zero[node_id] == 0 ? false : true);
         if(check_zero) {
             // 分岐後の葉の数が多い順にソート
@@ -858,25 +858,25 @@ class map_check {
         std::cout << "--- call_topo ---" << std::endl;
         
         // auto [fork_info, blanch_num, check_bottom] = hash_trie_.return_partial_CP_info(restore_codes_); // trie.hppで計算
-        auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info(); // vectorですべて計算
+        // auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info(); // vectorですべて計算
         // auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info_using_map(); // map.hppで計算
-        std::cout << "size : " << fork_info.size() << std::endl;
-        // std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
-        // std::vector<uint64_t> blanch_num;
-        // std::vector<uint64_t> cnt_leaf;
-        // std::vector<bool> check_bottom;
-        // return_partial_CP_info_not_fork_info(children, blanch_num, cnt_leaf, check_bottom); // fork_infoを使用しない方法
-        // std::cout << "size : " << children.size() << std::endl;
+        // std::cout << "size : " << fork_info.size() << std::endl;
+        std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
+        std::vector<uint64_t> blanch_num;
+        std::vector<uint64_t> cnt_leaf;
+        std::vector<bool> check_bottom;
+        return_partial_CP_info_not_fork_info(children, blanch_num, cnt_leaf, check_bottom); // fork_infoを使用しない方法
+        std::cout << "size : " << children.size() << std::endl;
 
         // fork_infoの情報を元に、CP順を求め、新しい辞書に格納していく
         // data_reset();
         // hash_trie_.expand_tmp_table();
         // label_store_.expand_tmp_ptrs();
         std::string compare_str = "";
-        require_centroid_path_order_and_insert_dictionaly(fork_info, hash_trie_.get_root(), blanch_num, check_bottom, compare_str);
+        // require_centroid_path_order_and_insert_dictionaly(fork_info, hash_trie_.get_root(), blanch_num, check_bottom, compare_str);
         // std::vector<std::string> part_keys(hash_trie_.capa_size());
         // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, part_keys);
-        // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, compare_str);
+        require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, compare_str);
         // hash_trie_.move_table();    // 辞書の移動
         // label_store_.move_ptrs();
         // hash_trie_.set_first_insert(false);
