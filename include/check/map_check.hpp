@@ -324,7 +324,7 @@ class map_check {
                     });
                     for(auto s : fp[node_id][i].children) {
                         require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
-                        insert_new_dic(s.first, check_bottom[s.first], compare_str);
+                        // insert_new_dic(s.first, check_bottom[s.first], compare_str);
                     }
                 }
             } else { // 最後に0分岐を処理する
@@ -335,7 +335,7 @@ class map_check {
                     });
                     for(auto s : fp[node_id][pos].children) {
                         require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
-                        insert_new_dic(s.first, check_bottom[s.first], compare_str);
+                        // insert_new_dic(s.first, check_bottom[s.first], compare_str);
                     }
                 }
             }
@@ -349,11 +349,11 @@ class map_check {
                 });
                 for(auto s : fp[node_id][i].children) {
                     require_centroid_path_order_and_insert_dictionaly(fp, s.first, bn, check_bottom, compare_str);
-                    insert_new_dic(s.first, check_bottom[s.first], compare_str);
+                    // insert_new_dic(s.first, check_bottom[s.first], compare_str);
                 }
             }
         }
-        if(node_id == hash_trie_.get_root()) insert_new_dic(node_id, check_bottom[node_id], compare_str);
+        // if(node_id == hash_trie_.get_root()) insert_new_dic(node_id, check_bottom[node_id], compare_str);
     }
 
     // centroid_path_を求めて、新しい辞書に格納する
@@ -407,7 +407,7 @@ class map_check {
                     });
                     for(auto& s : grandchild_shelter) {
                         require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
-                        insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                        // insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
                         // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
                         // insert_new_dic_using_middle_string(s.second, part_keys);
                     }
@@ -426,7 +426,7 @@ class map_check {
                     });
                     for(auto& s : grandchild_shelter) {
                         require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
-                        insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                        // insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
                         // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
                         // insert_new_dic_using_middle_string(s.second, part_keys);
                     }
@@ -449,13 +449,13 @@ class map_check {
                 });
                 for(auto& s : grandchild_shelter) {
                     require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, compare_str);
-                    insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
+                    // insert_new_dic(s.second, check_bottom[s.first], compare_str); // 新しい辞書に登録する
                     // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, s.second, blanch_num_except_zero, cnt_leaf, check_bottom, part_keys);
                     // insert_new_dic_using_middle_string(s.second, part_keys);
                 }
             }
         }
-        if(node_id == hash_trie_.get_root()) insert_new_dic(node_id, check_bottom[node_id], compare_str);
+        // if(node_id == hash_trie_.get_root()) insert_new_dic(node_id, check_bottom[node_id], compare_str);
         // if(node_id == hash_trie_.get_root()) insert_new_dic_using_middle_string(node_id, part_keys);
     }
 
@@ -858,28 +858,28 @@ class map_check {
         std::cout << "--- call_topo ---" << std::endl;
         
         // auto [fork_info, blanch_num, check_bottom] = hash_trie_.return_partial_CP_info(restore_codes_); // trie.hppで計算
-        // auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info(); // vectorですべて計算
+        auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info(); // vectorですべて計算
         // auto [fork_info, blanch_num, check_bottom] = return_partial_CP_info_using_map(); // map.hppで計算
-        // std::cout << "size : " << fork_info.size() << std::endl;
-        std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
-        std::vector<uint64_t> blanch_num;
-        std::vector<uint64_t> cnt_leaf;
-        std::vector<bool> check_bottom;
-        return_partial_CP_info_not_fork_info(children, blanch_num, cnt_leaf, check_bottom); // fork_infoを使用しない方法
-        std::cout << "size : " << children.size() << std::endl;
+        std::cout << "size : " << fork_info.size() << std::endl;
+        // std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
+        // std::vector<uint64_t> blanch_num;
+        // std::vector<uint64_t> cnt_leaf;
+        // std::vector<bool> check_bottom;
+        // return_partial_CP_info_not_fork_info(children, blanch_num, cnt_leaf, check_bottom); // fork_infoを使用しない方法
+        // std::cout << "size : " << children.size() << std::endl;
 
         // fork_infoの情報を元に、CP順を求め、新しい辞書に格納していく
-        data_reset();
-        hash_trie_.expand_tmp_table();
-        label_store_.expand_tmp_ptrs();
+        // data_reset();
+        // hash_trie_.expand_tmp_table();
+        // label_store_.expand_tmp_ptrs();
         std::string compare_str = "";
-        // require_centroid_path_order_and_insert_dictionaly(fork_info, hash_trie_.get_root(), blanch_num, check_bottom, compare_str);
+        require_centroid_path_order_and_insert_dictionaly(fork_info, hash_trie_.get_root(), blanch_num, check_bottom, compare_str);
         // std::vector<std::string> part_keys(hash_trie_.capa_size());
         // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, part_keys);
-        require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, compare_str);
-        hash_trie_.move_table();    // 辞書の移動
-        label_store_.move_ptrs();
-        hash_trie_.set_first_insert(false);
+        // require_centroid_path_order_and_insert_dictionaly_not_fork_info(children, hash_trie_.get_root(), blanch_num, cnt_leaf, check_bottom, compare_str);
+        // hash_trie_.move_table();    // 辞書の移動
+        // label_store_.move_ptrs();
+        // hash_trie_.set_first_insert(false);
 
         // 特定の深さからの線形探索回数を調べる
         // hash_trie_.reset_cnt_compare();
