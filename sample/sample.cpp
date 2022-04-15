@@ -350,6 +350,16 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     // std::cout << "time_search : " << search_time << std::endl;
 }
 
+void write_file(std::vector<uint64_t>& box) {
+    std::ofstream of;
+    std::string filename = "../../../result/result.txt";
+    of.open(filename, std::ios::out);
+    for(auto b : box) {
+        of << b << std::endl;
+    }
+    of.close();
+}
+
 // 作成したCP入れ替えを複数回試す
 template<class Map>
 void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
@@ -364,7 +374,7 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         Stopwatch sw;
         // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
-        // map.dynamic_replacement();
+        map.dynamic_replacement();
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
         if(i == -1) {
