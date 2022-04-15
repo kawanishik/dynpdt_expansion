@@ -11,6 +11,9 @@
 
 namespace poplar {
 
+static std::map<int, int> cnt_linear_proving;
+static uint64_t cnt_linear_proving_all = 0;
+
 template <uint32_t MaxFactor = 90, typename Hasher = hash::vigna_hasher>
 class plain_bonsai_trie_dr {
   private:

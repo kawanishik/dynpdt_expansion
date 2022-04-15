@@ -13,6 +13,9 @@
 
 namespace poplar {
 
+static std::map<int, int> cnt_hash;
+static uint64_t all_cnt = 0;
+
 // This class implements an updatable associative array whose keys are strings.
 // The data structure is based on a dynamic path-decomposed trie described in the following paper,
 // - "Dynamic Path-Decomposed Tries" available at https://arxiv.org/abs/1906.06015.
