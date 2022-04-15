@@ -269,6 +269,7 @@ class map_dr {
     Trie hash_trie_;
     NLM label_store_;
     std::array<uint8_t, 256> codes_ = {};
+    std::array<uint8_t, 256> restore_codes_ = {};
     uint32_t num_codes_ = 0;
     uint64_t size_ = 0;
 #ifdef POPLAR_EXTRA_STATS
@@ -278,6 +279,11 @@ class map_dr {
     uint64_t make_symb_(uint8_t c, uint64_t match) const {
         assert(codes_[c] != UINT8_MAX);
         return static_cast<uint64_t>(codes_[c]) | (match << 8);
+    }
+
+    // labelからcとmatchを復元する
+    std::pair<char, uint64_t> restore_symb_(uint64_t label) const  {
+        return std::pair{char(restore_codes_[label % 256]), label/256};
     }
 
     void expand_if_needed_(uint64_t& node_id) {
