@@ -181,6 +181,85 @@ class map_dr {
         return vptr ? const_cast<value_type*>(vptr) : nullptr;
     }
 
+        struct parent_info {
+        uint64_t parent;    // 親のノード番号
+        uint64_t match;     // 文字列比較での失敗位置
+        uint8_t c;          // 親からの遷移文字
+    };
+
+    // ノードのつながりと分岐数(葉の数)を調べるための関数
+    void compute_node_connect_and_blanch_num(std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+                                             std::vector<uint64_t>& blanch_num_except_zero,
+                                             std::vector<uint64_t>& cnt_leaf_per_node) {
+        uint64_t table_size = hash_trie_.capa_size();
+        std::vector<parent_info> parent(table_size);        // 親ノード、文字列比較での失敗位置、遷移文字を保存
+        std::vector<uint64_t> partial_num(table_size, 0);   // 子の数を格納するための配列(自身の数も含む)
+        cnt_leaf_per_node.resize(table_size, 0);            // それぞれのノードから繋がっている葉ノードの数をカウント
+        blanch_num_except_zero.resize(table_size, 0);       // 特定のノード以下に何個のノードが存在するのか
+        children.resize(table_size);                        // 子集合を保存
+
+        // O(n)で、親の位置、子の数(ノード番号も)を数える
+        // 現在はダミーノードの数も計測してしまっている → 完了
+        partial_num[hash_trie_.get_root()] += 1;
+        for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
+            if(hash_trie_.is_use_table(i)) {                                                    // テーブルが使用されているとき
+                auto [p, label] = hash_trie_.get_parent_and_symb(i);                            // 親と遷移情報の取得
+                if(label == 255) continue;                                                      // ダミーノードをスキップ
+                auto [c, match] = std::pair{uint8_t(restore_codes_[label % 256]), label/256};   // 遷移文字と分岐位置を取得
+                while(label_store_.return_string_pointer(p) == nullptr) {                       // 親がダミーノードの時の処理(ダミーノードに文字列は保存されていないため)
+                    auto [tmp_parent, tmp_label] = hash_trie_.get_parent_and_symb(p);
+                    match += lambda_;
+                    p = tmp_parent;
+                }
+                partial_num[i] += 1; // 自身の数をカウントする
+                partial_num[p] += 1; // 子から親の数をカウントする
+                children[p].push_back({match, i});
+                parent[i].parent = p;
+                parent[i].match = match;
+                parent[i].c = c;
+            }
+        }
+
+        // queueを使用して、一番下のものから処理していく
+        // 初めに、一番下のノードのみを取得 (O(n))
+        std::queue<uint64_t> que;
+        // 対象のデータを集めてくる
+        for(uint64_t i=0; i < table_size; i++) {
+            if(partial_num[i] == 1) {
+                que.push(i);
+            }
+        }
+
+        // queueに追加した順に処理（DynPDT上の一番下のノードから）
+        while(!que.empty()) {                           // 追加された順に処理
+            uint64_t q = que.front();
+            que.pop();
+            auto [node_id, match, c] = parent[q];
+            cnt_leaf_per_node[q] += 1;
+            uint64_t p = node_id;
+            cnt_leaf_per_node[p] += cnt_leaf_per_node[q];
+            if(match != 0) blanch_num_except_zero[p] += cnt_leaf_per_node[q];    // match=0は、親ノードからの分岐位置が同じことを示している
+            else { // もう一つ上の親に足す(zero分岐のトライ上で考えるとそのようになるから)
+                if(p != hash_trie_.get_root()) {
+                    auto [pp, m , cc] = parent[p];
+                    blanch_num_except_zero[pp] += cnt_leaf_per_node[q];
+                }
+            }
+            partial_num[p]--;
+            if(partial_num[p] == 1) { // 子供の処理がすべて終了すると追加
+                que.push(p);
+            }
+        }
+    }
+
+    // 動的にいれかえるための関数
+    void dynamic_replacement() {
+        std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
+        std::vector<uint64_t> blanch_num_except_zero;
+        std::vector<uint64_t> cnt_leaf_per_node;
+        compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);        
+    }
+
     // Gets the number of registered keys.
     uint64_t size() const {
         return size_;
