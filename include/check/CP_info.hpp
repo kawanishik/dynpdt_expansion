@@ -12,7 +12,7 @@ struct info_fp {
 
 // 親情報を保存するときに使用
 struct parent_info {
-    uint64_t parent;
-    uint64_t match;
-    uint8_t c;
+    uint64_t parent;    // 親のノード番号
+    uint64_t match;     // 文字列比較での失敗位置
+    uint8_t c;          // 親からの遷移文字
 };
