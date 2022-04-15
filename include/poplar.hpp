@@ -40,6 +40,10 @@
 #include "check/plain_bonsai_nlm_check.hpp"
 #include "check/plain_bonsai_tire_check.hpp"
 
+#include "dynamic_replacement/map_dr.hpp"
+#include "dynamic_replacement/plain_bonsa_trie_dr.hpp"
+#include "dynamic_replacement/plain_bonsai_nlm_dr.hpp"
+
 namespace poplar {
 
 template <typename Value>
@@ -63,6 +67,10 @@ using compact_fkhash_map = map<compact_fkhash_trie<>, compact_fkhash_nlm<Value, 
 // 何かの実装をする際に使用する
 template <typename Value>
 using plain_bonsai_map_check = map_check<plain_bonsai_trie_check<>, plain_bonsai_nlm_check<Value>>;
+
+// 動的に組み替える際に使用する
+template <typename Value>
+using plain_bonsai_map_dr = map_dr<plain_bonsai_trie_dr<>, plain_bonsai_nlm_dr<Value>>;
 
 }  // namespace poplar
 

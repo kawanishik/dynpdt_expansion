@@ -382,7 +382,7 @@ int main() {
     std::vector<std::string> test_keys;                         // 全てのキーに対する検索時間を測定する際に使用
     std::vector<std::vector<std::string>> random_test_keys;     // ランダムに取り出したキーを検索する際に使用
     
-    std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD" << std::endl;
+    std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
     std::cout << "上記より選択してください : ";
     std::string input_name;
     std::cin >> input_name;
@@ -458,7 +458,10 @@ int main() {
         // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
         map.show_cnt_hash();
         std::cout << "time_search : " << search_time << std::endl;
-    } else {
+    } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
+        poplar::plain_bonsai_map_dr<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+    }else {
         std::cout << "そのようなデータセットは存在しません" << std::endl;
     }
 
