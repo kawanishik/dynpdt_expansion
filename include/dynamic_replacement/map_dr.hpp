@@ -42,6 +42,8 @@ class map_dr {
         hash_trie_ = Trie{capa_bits, 8 + bit_tools::ceil_log2(lambda_)};
         label_store_ = NLM{hash_trie_.capa_bits()};
         codes_.fill(UINT8_MAX);
+        restore_codes_.fill(UINT8_MAX);
+        restore_codes_[0] = static_cast<uint8_t>(num_codes_);
         codes_[0] = static_cast<uint8_t>(num_codes_++);  // terminator
     }
 
@@ -252,12 +254,95 @@ class map_dr {
         }
     }
 
+    // 求めたノードの関係からCPD順を求める
+    // 最終的には、ここで新しい辞書に対して、キーを追加する(まだ、未実装)
+    void require_centroid_path_order_and_insert_dictionaly(std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+                                                           uint64_t node_id,
+                                                           const std::vector<uint64_t>& blanch_num_except_zero,
+                                                           const std::vector<uint64_t>& cnt_leaf) {
+        // 一番下まで、たどり着いた時の処理
+        if(children[node_id].size() == 0) return;
+
+        std::vector<std::pair<uint64_t, uint64_t>> match_per_leaf_num;  // first:match, second:cnt_leaf[]
+        std::map<uint64_t, uint64_t> start_pos;                         // children[node_id]内のmatchのスタート位置を保存
+        uint64_t pre_match = UINT64_MAX;                                // 以前、比較したmatch(文字列比較失敗位置)を保存
+        uint64_t zero_blanch_num = 0;                                   // ノード(node_id)のzero分岐の総数
+        uint64_t children_size = children[node_id].size();              // 子ノードの数
+
+        // 現在のchildrent[node_id]内は以下のようになっている
+        // ex. ({3, 54}, {0, 4}, {13, 23}, {0, 5})
+        // ソートして、下のように修正
+        // ex. ({0, 4}, {0, 5}, {3, 54}, {13, 23})
+        std::sort(children[node_id].begin(), children[node_id].end(), [] (auto l, auto r) {
+            return l.first < r.first;
+        });
+
+        // matchごとに、分岐後の葉の数をカウント
+        for(uint64_t i=0; i < children_size; i++) {
+            std::pair<uint64_t, uint64_t> child = children[node_id][i];
+            if(child.first != pre_match) {
+                match_per_leaf_num.push_back(std::pair{child.first, cnt_leaf[child.second]});
+                pre_match = child.first;
+                start_pos[pre_match] = i + 1;
+                if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
+            } else {
+                match_per_leaf_num[match_per_leaf_num.size()-1].second += cnt_leaf[child.second];
+                if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
+            }
+        }
+
+        bool exist_zero_blanch = (zero_blanch_num == 0 ? false : true);
+        // zero分岐が存在するときは、その部分以外をソートする
+        if(exist_zero_blanch) {
+            if(match_per_leaf_num[0].first != 0) std::cout << match_per_leaf_num[0].first << std::endl;
+            std::sort(match_per_leaf_num.begin()+1, match_per_leaf_num.end(), [] (auto l, auto r) {
+                return l.second > r.second;
+            });
+        } else {
+            std::sort(match_per_leaf_num.begin(), match_per_leaf_num.end(), [] (auto l, auto r) {
+                return l.second > r.second;
+            });
+        }
+
+        // zero分岐を最後に処理するのかを判定
+        bool do_zero_blanch_last = false;
+        if(exist_zero_blanch) {
+            if(zero_blanch_num <= blanch_num_except_zero[node_id]) do_zero_blanch_last = true;
+        }
+
+        // 分岐後の葉の数が多い順に処理していく
+        // 初めに、対象とするmatchの子ノードとそれ以降の葉の数を保存
+        uint64_t match_per_leaf_num_size = match_per_leaf_num.size();
+        for(uint64_t i=0; i < match_per_leaf_num_size; i++) {
+            uint64_t pos = (do_zero_blanch_last ? (i+1)%match_per_leaf_num_size : i);   // zero分岐を最後に処理するのかによって、posの値が変化する
+            std::vector<std::pair<uint64_t, uint64_t>> children_shelter;                // first:cnt_leaf[], second:next_id
+            pre_match = match_per_leaf_num[pos].first;
+            for(uint64_t j=start_pos[pre_match]-1; j < children_size; j++) {
+                if(pre_match != children[node_id][j].first) break;
+                uint64_t next_id = children[node_id][j].second;
+                children_shelter.push_back({cnt_leaf[next_id], next_id});
+            }
+            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
+                return l.first > r.first;
+            });
+            for(auto& s : children_shelter) {
+                require_centroid_path_order_and_insert_dictionaly(children, s.second, blanch_num_except_zero, cnt_leaf);
+                // insert_new_dic(s.second); // 新しい辞書に登録（未実装）
+            }
+        }
+
+        // if(node_id == hash_trie_.get_root()) insert_new_dic(node_id); // 新しい辞書に登録（未実装）
+    }
+
     // 動的にいれかえるための関数
     void dynamic_replacement() {
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
         std::vector<uint64_t> blanch_num_except_zero;
         std::vector<uint64_t> cnt_leaf_per_node;
-        compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);        
+        compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);
+
+        require_centroid_path_order_and_insert_dictionaly(children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
+
     }
 
     // Gets the number of registered keys.
