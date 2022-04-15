@@ -360,10 +360,11 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
     // // search_time = CalcSearchSpeed(map, keys, input_num_keys);
     // map.show_cnt_hash();
     // std::cout << "time_search : " << search_time << std::endl;
-    for(int i=0; i < 1; i++) {
+    for(int i=0; i < 1; i++) { // 複数回呼び出して、どのようになるのかを検証する際に使用
         Stopwatch sw;
-        map.call_topo();
+        // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
+        // map.dynamic_replacement();
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
         if(i == -1) {
@@ -401,7 +402,7 @@ int main() {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
         // map.call_topo();
-        multi_CP_swap(map, keys, test_keys);
+        // multi_CP_swap(map, keys, test_keys);
     } else if(input_name == "check_CPD") {
         auto begin_size = get_process_size();
         poplar::plain_bonsai_map_check<int> map;
@@ -461,6 +462,7 @@ int main() {
     } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
+        multi_CP_swap(map, keys, test_keys);
     }else {
         std::cout << "そのようなデータセットは存在しません" << std::endl;
     }
