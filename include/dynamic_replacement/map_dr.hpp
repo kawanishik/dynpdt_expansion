@@ -202,6 +202,7 @@ class map_dr {
         cnt_leaf_per_node.resize(table_size, 0);            // それぞれのノードから繋がっている葉ノードの数をカウント
         blanch_num_except_zero.resize(table_size, 0);       // 特定のノード以下に何個のノードが存在するのか
         children.resize(table_size);                        // 子集合を保存
+        std::vector<uint64_t> children_size(table_size);
 
         // O(n)で、親の位置、子の数(ノード番号も)を数える
         // 現在はダミーノードの数も計測してしまっている → 完了
@@ -216,32 +217,45 @@ class map_dr {
                     match += lambda_;
                     p = tmp_parent;
                 }
-                partial_num[i] += 1; // 自身の数をカウントする
+                assert(p != nil_id);
                 partial_num[p] += 1; // 子から親の数をカウントする
-                children[p].push_back({match, i});
+                children_size[p]++;
+                partial_num[i] += 1; // 自身の数をカウントする
                 parent[i].parent = p;
                 parent[i].match = match;
                 parent[i].c = c;
             }
         }
+        for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
+          if (!hash_trie_.is_use_table(i)) continue;
+          children[i].reserve(children_size[i]);
+        }
+        for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
+          if (!hash_trie_.is_use_table(i)) continue;
+          auto p = parent[i].parent;
+          auto match = parent[i].match;
+          children[p].emplace_back(match, i);
+        }
 
         // queueを使用して、一番下のものから処理していく
         // 初めに、一番下のノードのみを取得 (O(n))
-        std::queue<uint64_t> que;
+//        std::queue<uint64_t> que;
+        std::vector<uint64_t> que;
+        que.reserve(hash_trie_.size());
         // 対象のデータを集めてくる
         for(uint64_t i=0; i < table_size; i++) {
             if(partial_num[i] == 1) {
-                que.push(i);
+                que.push_back(i);
             }
         }
 
         // queueに追加した順に処理（DynPDT上の一番下のノードから）
-        while(!que.empty()) {                           // 追加された順に処理
-            uint64_t q = que.front();
-            que.pop();
+        for(uint64_t k = 0; k < que.size(); ++k) {                           // 追加された順に処理
+            uint64_t q = que[k];
             auto [node_id, match, c] = parent[q];
             cnt_leaf_per_node[q] += 1;
             uint64_t p = node_id;
+            assert(p != nil_id);
             cnt_leaf_per_node[p] += cnt_leaf_per_node[q];
             if(match != 0) blanch_num_except_zero[p] += cnt_leaf_per_node[q];    // match=0は、親ノードからの分岐位置が同じことを示している
             else { // もう一つ上の親に足す(zero分岐のトライ上で考えるとそのようになるから)
@@ -252,7 +266,7 @@ class map_dr {
             }
             partial_num[p]--;
             if(partial_num[p] == 1) { // 子供の処理がすべて終了すると追加
-                que.push(p);
+                que.push_back(p);
             }
         }
     }
@@ -279,22 +293,26 @@ class map_dr {
         std::sort(children[node_id].begin(), children[node_id].end(), [] (auto l, auto r) {
             return l.first < r.first;
         });
+        /* TODO: children の match を座標圧縮して処理する
+        std::vector<uint64_t> matches(children[node_id].size());
+        std::transform(children[node_id].begin(), children[node_id].end(), matches.begin(), [](auto& c) {return c.first;});
+        matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
+         */
 
         // matchごとに、分岐後の葉の数をカウント
         for(uint64_t i=0; i < children_size; i++) {
             std::pair<uint64_t, uint64_t> child = children[node_id][i];
             if(child.first != pre_match) {
-                match_per_leaf_num.push_back(std::pair{child.first, cnt_leaf[child.second]});
+                match_per_leaf_num.emplace_back(child.first, cnt_leaf[child.second]);
                 pre_match = child.first;
                 start_pos[pre_match] = i + 1;
-                if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
             } else {
-                match_per_leaf_num[match_per_leaf_num.size()-1].second += cnt_leaf[child.second];
-                if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
+                match_per_leaf_num.back().second += cnt_leaf[child.second];
             }
+            if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
         }
 
-        bool exist_zero_blanch = (zero_blanch_num == 0 ? false : true);
+        bool exist_zero_blanch = zero_blanch_num != 0;
         // zero分岐が存在するときは、その部分以外をソートする
         if(exist_zero_blanch) {
             if(match_per_leaf_num[0].first != 0) std::cout << match_per_leaf_num[0].first << std::endl;
@@ -323,7 +341,7 @@ class map_dr {
             for(uint64_t j=start_pos[pre_match]-1; j < children_size; j++) {
                 if(pre_match != children[node_id][j].first) break;
                 uint64_t next_id = children[node_id][j].second;
-                children_shelter.push_back({cnt_leaf[next_id], next_id});
+                children_shelter.emplace_back(cnt_leaf[next_id], next_id);
             }
             std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
                 return l.first > r.first;
