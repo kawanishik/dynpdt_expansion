@@ -209,6 +209,12 @@ class plain_bonsai_trie_dr {
         return node_map;
     }
 
+    // テーブル内の特定の要素が使用されているのか
+    bool is_use_table(uint64_t i) {
+        if(table_[i] == 0) return false;
+        return true;
+    }
+
     void reset_cnt_compare() {
         std::cout << "--- reset_cnt_linear_proving ---" << std::endl;
         cnt_linear_proving.clear();
