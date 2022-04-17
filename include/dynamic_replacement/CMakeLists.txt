@@ -1,0 +1,6 @@
+set(CMAKE_CXX_STANDARD 17)
+
+enable_testing()
+
+add_executable(test_compute_node_connect_and_blanch_num test_compute_node_connect_and_blanch_num.cpp)
+add_test(test_compute_node_connect_and_blanch_num test_compute_node_connect_and_blanch_num)
