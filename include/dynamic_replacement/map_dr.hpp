@@ -159,6 +159,7 @@ class map_dr {
 
             if (codes_[*key.begin] == UINT8_MAX) {
                 // Update table
+                restore_codes_[num_codes_] = *key.begin;
                 codes_[*key.begin] = static_cast<uint8_t>(num_codes_++);
                 POPLAR_THROW_IF(UINT8_MAX == num_codes_, "");
             }
@@ -184,6 +185,14 @@ class map_dr {
 
         auto vptr = label_store_.compare(node_id, key).first;
         return vptr ? const_cast<value_type*>(vptr) : nullptr;
+    }
+
+    // 新しい辞書に登録するための関数
+    template<class Map>
+    void insert_new_dic(Map& new_map, uint64_t node_id) {
+        std::string restore_key = restore_insert_string(node_id);
+        int* ptr = new_map.update(restore_key);
+        *ptr = 1;
     }
 
     struct parent_info {
@@ -273,7 +282,9 @@ class map_dr {
 
     // 求めたノードの関係からCPD順を求める
     // 最終的には、ここで新しい辞書に対して、キーを追加する(まだ、未実装)
-    void require_centroid_path_order_and_insert_dictionary(std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+    template<class Map>
+    void require_centroid_path_order_and_insert_dictionary(Map& new_map,
+                                                           std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
                                                            uint64_t node_id,
                                                            const std::vector<uint64_t>& blanch_num_except_zero,
                                                            const std::vector<uint64_t>& cnt_leaf) {
@@ -347,12 +358,12 @@ class map_dr {
                 return l.first > r.first;
             });
             for(auto& s : children_shelter) {
-                require_centroid_path_order_and_insert_dictionary(children, s.second, blanch_num_except_zero, cnt_leaf);
-                // insert_new_dic(s.second); // 新しい辞書に登録（未実装）
+                require_centroid_path_order_and_insert_dictionary(new_map, children, s.second, blanch_num_except_zero, cnt_leaf);
+                insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
             }
         }
 
-        // if(node_id == hash_trie_.get_root()) insert_new_dic(node_id); // 新しい辞書に登録（未実装）
+        if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id); // 新しい辞書に登録（未実装）
     }
 
     // 特定のノードから、get_root()までの文字列を復元する
@@ -409,8 +420,11 @@ class map_dr {
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);
 
-        require_centroid_path_order_and_insert_dictionary(children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
-
+        map_dr new_map(hash_trie_.capa_bits()+1);
+        // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
+        // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
+        require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
+        std::swap(*this, new_map); // 時間がかかるので、注意
     }
 
     // Gets the number of registered keys.
