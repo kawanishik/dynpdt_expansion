@@ -343,16 +343,16 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 
     // map.reset_cnt_hash();
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
+    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
-    // std::cout << "time_search : " << search_time << std::endl;
+    std::cout << "time_search : " << search_time << std::endl;
 }
 
 void write_file(std::vector<uint64_t>& box) {
     std::ofstream of;
-    std::string filename = "../../../result/result.txt";
+    std::string filename = "../../../result/result3.txt";
     of.open(filename, std::ios::out);
     for(auto b : box) {
         of << b << std::endl;
@@ -374,10 +374,10 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         Stopwatch sw;
         // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
-        map.dynamic_replacement();
+        // map.dynamic_replacement();
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
-        if(i == -1) {
+        if(i == 0) {
             map.reset_cnt_hash();
             double search_time = AllDatasetSearchSpeed(map, test_keys);
             // search_time = CalcSearchSpeed(map, keys, input_num_keys);
@@ -472,7 +472,7 @@ int main() {
     } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        multi_CP_swap(map, keys, test_keys);
+        // multi_CP_swap(map, keys, test_keys);
     }else {
         std::cout << "そのようなデータセットは存在しません" << std::endl;
     }
