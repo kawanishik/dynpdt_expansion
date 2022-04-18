@@ -186,7 +186,7 @@ class map_dr {
         return vptr ? const_cast<value_type*>(vptr) : nullptr;
     }
 
-        struct parent_info {
+    struct parent_info {
         uint64_t parent;    // 親のノード番号
         uint64_t match;     // 文字列比較での失敗位置
         uint8_t c;          // 親からの遷移文字
@@ -202,7 +202,7 @@ class map_dr {
         cnt_leaf_per_node.resize(table_size, 0);            // それぞれのノードから繋がっている葉ノードの数をカウント
         blanch_num_except_zero.resize(table_size, 0);       // 特定のノード以下に何個のノードが存在するのか
         children.resize(table_size);                        // 子集合を保存
-        std::vector<uint64_t> children_size(table_size);
+        std::vector<uint64_t> children_size(table_size);    // reserveで要素を確保するために使用
 
         // O(n)で、親の位置、子の数(ノード番号も)を数える
         // 現在はダミーノードの数も計測してしまっている → 完了
@@ -245,7 +245,7 @@ class map_dr {
         // 対象のデータを集めてくる
         for(uint64_t i=0; i < table_size; i++) {
             if(partial_num[i] == 1) {
-                que.push_back(i);
+                que.emplace_back(i);
             }
         }
 
@@ -266,14 +266,14 @@ class map_dr {
             }
             partial_num[p]--;
             if(partial_num[p] == 1) { // 子供の処理がすべて終了すると追加
-                que.push_back(p);
+                que.emplace_back(p);
             }
         }
     }
 
     // 求めたノードの関係からCPD順を求める
     // 最終的には、ここで新しい辞書に対して、キーを追加する(まだ、未実装)
-    void require_centroid_path_order_and_insert_dictionaly(std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+    void require_centroid_path_order_and_insert_dictionary(std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
                                                            uint64_t node_id,
                                                            const std::vector<uint64_t>& blanch_num_except_zero,
                                                            const std::vector<uint64_t>& cnt_leaf) {
@@ -347,12 +347,59 @@ class map_dr {
                 return l.first > r.first;
             });
             for(auto& s : children_shelter) {
-                require_centroid_path_order_and_insert_dictionaly(children, s.second, blanch_num_except_zero, cnt_leaf);
+                require_centroid_path_order_and_insert_dictionary(children, s.second, blanch_num_except_zero, cnt_leaf);
                 // insert_new_dic(s.second); // 新しい辞書に登録（未実装）
             }
         }
 
         // if(node_id == hash_trie_.get_root()) insert_new_dic(node_id); // 新しい辞書に登録（未実装）
+    }
+
+    // 特定のノードから、get_root()までの文字列を復元する
+    std::string restore_insert_string(uint64_t node_id) {
+        std::string insert_string = ""; // ここに文字列を格納して、新しい辞書に挿入する
+
+        // とりあえず、文字列を復元する
+        auto fs = label_store_.return_string_pointer(node_id);
+        if(fs == nullptr) return insert_string;
+        for(uint64_t i=0;; i++) {
+            if(fs[i] == 0x00) break;
+            insert_string += fs[i];
+        }
+
+        // get_root()まで、文字列を復元する
+        while(node_id != hash_trie_.get_root()) {
+            auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+            auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
+
+            insert_string = c + insert_string;
+
+            uint64_t dummy_step = 0; // ダミーノードの数を数える
+            while(1) {
+                fs = label_store_.return_string_pointer(parent);
+                if(fs == nullptr) {
+                    dummy_step++;
+                    auto [tmp1, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                    parent = tmp1;
+                } else {
+                    break;
+                }
+            }
+
+            match += dummy_step * lambda_; // スキップした回数分だけ足す
+
+            if(match != 0) {
+                fs = label_store_.return_string_pointer(parent);
+                std::string tmp_str = "";
+                for(uint64_t j=0; j < match; j++) {
+                    tmp_str += fs[j];
+                }
+                insert_string = tmp_str + insert_string;
+            }
+
+            node_id = parent;
+        }
+        return insert_string;
     }
 
     // 動的にいれかえるための関数
@@ -362,7 +409,7 @@ class map_dr {
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);
 
-        require_centroid_path_order_and_insert_dictionaly(children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
+        require_centroid_path_order_and_insert_dictionary(children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
 
     }
 
