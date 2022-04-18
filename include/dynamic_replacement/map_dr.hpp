@@ -114,6 +114,7 @@ class map_dr {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
+        char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -145,7 +146,10 @@ class map_dr {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    expand_if_needed_(node_id);
+                    // expand_if_needed_(node_id);
+                    if(is_need_expand()) {
+                        return dynamic_replacement(tmp_key);
+                    }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -165,7 +169,10 @@ class map_dr {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                expand_if_needed_(node_id);
+                // expand_if_needed_(node_id);
+                if(is_need_expand()) {
+                    return dynamic_replacement(tmp_key);
+                }
                 ++key.begin;
                 ++size_;
 
@@ -414,7 +421,7 @@ class map_dr {
     }
 
     // 動的にいれかえるための関数
-    void dynamic_replacement() {
+    value_type* dynamic_replacement(char_range& key) {
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
         std::vector<uint64_t> blanch_num_except_zero;
         std::vector<uint64_t> cnt_leaf_per_node;
@@ -425,6 +432,8 @@ class map_dr {
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
         std::swap(*this, new_map); // 時間がかかるので、注意
+
+        return update(key);
     }
 
     // Gets the number of registered keys.
@@ -541,6 +550,14 @@ class map_dr {
             node_id = node_map[node_id];
             label_store_.expand(node_map);
         }
+    }
+    
+    // ハッシュテーブルの拡張が必要かを調べるための関数
+    bool is_need_expand() {
+        if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+            if(hash_trie_.needs_to_expand()) return true;
+        }
+        return false;
     }
 };
 
