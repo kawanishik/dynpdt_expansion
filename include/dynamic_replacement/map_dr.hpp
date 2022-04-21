@@ -114,7 +114,7 @@ class map_dr {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
-        char_range tmp_key = key;
+        // char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -146,10 +146,11 @@ class map_dr {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    // expand_if_needed_(node_id);
-                    if(is_need_expand()) {
-                        return dynamic_replacement(tmp_key);
-                    }
+                    expand_if_needed_(node_id);
+                    // if(is_need_expand()) {
+                    //     std::cout << "key : " << tmp_key.begin << std::endl;
+                    //     return dynamic_replacement(tmp_key);
+                    // }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -169,10 +170,11 @@ class map_dr {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                // expand_if_needed_(node_id);
-                if(is_need_expand()) {
-                    return dynamic_replacement(tmp_key);
-                }
+                expand_if_needed_(node_id);
+                // if(is_need_expand()) {
+                //     std::cout << "key : " << tmp_key.begin << std::endl;
+                //     return dynamic_replacement(tmp_key);
+                // }
                 ++key.begin;
                 ++size_;
 
@@ -198,6 +200,7 @@ class map_dr {
     template<class Map>
     void insert_new_dic(Map& new_map, uint64_t node_id) {
         std::string restore_key = restore_insert_string(node_id);
+        if(restore_key.size() == 0) return;
         int* ptr = new_map.update(restore_key);
         *ptr = 1;
     }
@@ -311,29 +314,40 @@ class map_dr {
         std::sort(children[node_id].begin(), children[node_id].end(), [] (auto l, auto r) {
             return l.first < r.first;
         });
-        /* TODO: children の match を座標圧縮して処理する
+        
+        // TODO: children の match を座標圧縮して処理する
         std::vector<uint64_t> matches(children[node_id].size());
         std::transform(children[node_id].begin(), children[node_id].end(), matches.begin(), [](auto& c) {return c.first;});
         matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
-         */
+        
 
         // matchごとに、分岐後の葉の数をカウント
+        // for(uint64_t i=0; i < children_size; i++) {
+        //     std::pair<uint64_t, uint64_t> child = children[node_id][i];
+        //     if(child.first != pre_match) {
+        //         match_per_leaf_num.emplace_back(child.first, cnt_leaf[child.second]);
+        //         pre_match = child.first;
+        //         start_pos[pre_match] = i + 1;
+        //     } else {
+        //         match_per_leaf_num.back().second += cnt_leaf[child.second];
+        //     }
+        //     if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
+        // }
+
+        // メモリを最初に確保し、childrenの先頭から順に2分探索で探す
+        match_per_leaf_num.resize(matches.size());
         for(uint64_t i=0; i < children_size; i++) {
-            std::pair<uint64_t, uint64_t> child = children[node_id][i];
-            if(child.first != pre_match) {
-                match_per_leaf_num.emplace_back(child.first, cnt_leaf[child.second]);
-                pre_match = child.first;
-                start_pos[pre_match] = i + 1;
-            } else {
-                match_per_leaf_num.back().second += cnt_leaf[child.second];
-            }
-            if(child.first == 0) zero_blanch_num += cnt_leaf[child.second];
+            auto [match, next_id] = children[node_id][i];
+            uint64_t pos = std::lower_bound(matches.begin(), matches.end(), match) - matches.begin();
+            match_per_leaf_num[pos].first = match;
+            match_per_leaf_num[pos].second += cnt_leaf[next_id];
+            if(match == 0) zero_blanch_num += cnt_leaf[next_id];
         }
 
         bool exist_zero_blanch = zero_blanch_num != 0;
         // zero分岐が存在するときは、その部分以外をソートする
         if(exist_zero_blanch) {
-            if(match_per_leaf_num[0].first != 0) std::cout << match_per_leaf_num[0].first << std::endl;
+            // if(match_per_leaf_num[0].first != 0) std::cout << match_per_leaf_num[0].first << std::endl;
             std::sort(match_per_leaf_num.begin()+1, match_per_leaf_num.end(), [] (auto l, auto r) {
                 return l.second > r.second;
             });
@@ -366,11 +380,11 @@ class map_dr {
             });
             for(auto& s : children_shelter) {
                 require_centroid_path_order_and_insert_dictionary(new_map, children, s.second, blanch_num_except_zero, cnt_leaf);
-                insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
+                // insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
             }
         }
 
-        if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id); // 新しい辞書に登録（未実装）
+        // if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id); // 新しい辞書に登録（未実装）
     }
 
     // 特定のノードから、get_root()までの文字列を復元する
@@ -421,7 +435,8 @@ class map_dr {
     }
 
     // 動的にいれかえるための関数
-    value_type* dynamic_replacement(char_range& key) {
+    // value_type* dynamic_replacement(char_range& key) {
+    void dynamic_replacement() {
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
         std::vector<uint64_t> blanch_num_except_zero;
         std::vector<uint64_t> cnt_leaf_per_node;
@@ -431,9 +446,9 @@ class map_dr {
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), blanch_num_except_zero, cnt_leaf_per_node);
-        std::swap(*this, new_map); // 時間がかかるので、注意
+        // std::swap(*this, new_map); // 時間がかかるので、注意
 
-        return update(key);
+        // return update(key);
     }
 
     // Gets the number of registered keys.
