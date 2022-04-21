@@ -320,7 +320,6 @@ class map_dr {
         std::transform(children[node_id].begin(), children[node_id].end(), matches.begin(), [](auto& c) {return c.first;});
         matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
         
-
         // matchごとに、分岐後の葉の数をカウント
         // for(uint64_t i=0; i < children_size; i++) {
         //     std::pair<uint64_t, uint64_t> child = children[node_id][i];
@@ -335,10 +334,21 @@ class map_dr {
         // }
 
         // メモリを最初に確保し、childrenの先頭から順に2分探索で探す
+        // children           : ({0, 4}, {0, 5}, {3, 54}, {13, 23})
+        // match_per_leaf_num : ({0, ?}, {3, ?}, {13, ?})
+        // start_pos          : ({0, 1}, {3, 3}, {13, 4})
         match_per_leaf_num.resize(matches.size());
+        pre_match = children[node_id][0].first;
+        start_pos[pre_match] = 1;
+        uint64_t pos = 0;
         for(uint64_t i=0; i < children_size; i++) {
             auto [match, next_id] = children[node_id][i];
-            uint64_t pos = std::lower_bound(matches.begin(), matches.end(), match) - matches.begin();
+            if(pre_match != match) {
+                pre_match = match;
+                start_pos[match] = i + 1;
+                pos++;
+            }
+            // uint64_t pos = std::lower_bound(matches.begin(), matches.end(), match) - matches.begin();
             match_per_leaf_num[pos].first = match;
             match_per_leaf_num[pos].second += cnt_leaf[next_id];
             if(match == 0) zero_blanch_num += cnt_leaf[next_id];
@@ -347,7 +357,6 @@ class map_dr {
         bool exist_zero_blanch = zero_blanch_num != 0;
         // zero分岐が存在するときは、その部分以外をソートする
         if(exist_zero_blanch) {
-            // if(match_per_leaf_num[0].first != 0) std::cout << match_per_leaf_num[0].first << std::endl;
             std::sort(match_per_leaf_num.begin()+1, match_per_leaf_num.end(), [] (auto l, auto r) {
                 return l.second > r.second;
             });
