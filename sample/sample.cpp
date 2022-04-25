@@ -168,9 +168,10 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/DS5_partial";
     // std::string input_name = "../../../dataset/tmp/enwiki_shuf.txt";
     // std::string input_name = "../../../dataset/tmp/DS5.txt";
+    // std::string input_name = "../../../dataset/tmp/in-2004.txt";
     // std::string input_name = "../../../dataset/enwiki-20150205.line";
     // std::string input_name = "../../../dataset/wordnet-3.0-word";
-    // std::string input_name = "../../../dataset/s9.txt"; // 家で実験するとき
+    // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
     // std::string input_name = "../../../dataset/s14.txt"; // 大学で実験するとき
 
     std::ifstream ifs(input_name);
@@ -187,6 +188,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string test_name = "../../../dataset/test_DS5.txt";
     // std::string test_name = "../../../dataset/test_GeoNames.txt";
     // std::string test_name = "../../../dataset/test_AOL.txt";
+    // std::string test_name = "../../../dataset/test_in-2004.txt";
     std::ifstream tfs(test_name);
     if (!tfs) {
         std::cerr << "File not found input file: "<< test_name << std::endl;
@@ -219,7 +221,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
 } // namespace
 
 template<class It, class StringDictionary>
-void insert_by_centroid_path_order(It begin, It end, int depth, StringDictionary& dict) {
+void insert_by_centroid_path_order(It begin, It end, uint64_t depth, StringDictionary& dict) {
     assert(end-begin > 0);
     if (end-begin == 1) {
         int* ptr = dict.update(*begin);
@@ -254,7 +256,7 @@ void insert_by_centroid_path_order(It begin, It end, int depth, StringDictionary
 }
 
 template<class It>
-void require_by_centroid_path_order(It begin, It end, int depth, std::vector<std::string>& keys) {
+void require_by_centroid_path_order(It begin, It end, uint64_t depth, std::vector<std::string>& keys) {
     assert(end-begin > 0);
     if (end-begin == 1) {
         keys.push_back(*begin);
@@ -329,7 +331,7 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
     //     const int *ptr = map.find(keys[i]);
     //     if(not (ptr != nullptr and *ptr == 1)) {
-    //         std::cout << "search_failed : " << keys[i] << std::endl;
+    //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
     //         test_check = false;
     //         return;
     //     }
@@ -343,16 +345,16 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 
     // map.reset_cnt_hash();
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
+    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
-    std::cout << "time_search : " << search_time << std::endl;
+    // std::cout << "time_search : " << search_time << std::endl;
 }
 
 void write_file(std::vector<uint64_t>& box) {
     std::ofstream of;
-    std::string filename = "../../../result/result3.txt";
+    std::string filename = "../../../result/result4.txt";
     of.open(filename, std::ios::out);
     for(auto b : box) {
         of << b << std::endl;
@@ -374,10 +376,27 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         Stopwatch sw;
         // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
-        // map.dynamic_replacement();
+        std::vector<uint64_t> box; // ノードの復元順を調べる際に使用
+        map.dynamic_replacement(box);
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
-        if(i == 0) {
+
+        // write_file(box);
+
+        // bool test_check = true;
+        // map.reset_cnt_hash();
+        // for(int i=0; i < int(keys.size()); i++) {
+        //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+        //     const int *ptr = map.find(keys[i]);
+        //     if(not (ptr != nullptr and *ptr == 1)) {
+        //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+        //         test_check = false;
+        //         return;
+        //     }
+        // }
+        // std::cout << (test_check ? "ok." : "failed.") << std::endl;
+
+        if(i == -1) {
             map.reset_cnt_hash();
             double search_time = AllDatasetSearchSpeed(map, test_keys);
             // search_time = CalcSearchSpeed(map, keys, input_num_keys);
@@ -387,16 +406,17 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 
     std::vector<std::string> keys;                              // 辞書構築用の配列
     std::vector<std::string> test_keys;                         // 全てのキーに対する検索時間を測定する際に使用
     std::vector<std::vector<std::string>> random_test_keys;     // ランダムに取り出したキーを検索する際に使用
     
-    std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
-    std::cout << "上記より選択してください : ";
-    std::string input_name;
-    std::cin >> input_name;
+    // std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
+    // std::cout << "上記より選択してください : ";
+    // std::string input_name;
+    // std::cin >> input_name;
+    std::string input_name = argv[1];
 
     
     FileRead(keys, test_keys, random_test_keys);
@@ -472,9 +492,11 @@ int main() {
     } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        // multi_CP_swap(map, keys, test_keys);
+        multi_CP_swap(map, keys, test_keys);
     }else {
-        std::cout << "そのようなデータセットは存在しません" << std::endl;
+        std::cout << "そのような辞書は存在しません" << std::endl;
+        std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
+        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
     }
 
 
