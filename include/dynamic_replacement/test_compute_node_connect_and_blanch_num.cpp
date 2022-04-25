@@ -23,9 +23,10 @@ int main() {
     mp.update(*it);
   }
   std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;
-  std::vector<uint64_t> blanch_num_except_zero;
+  // std::vector<uint64_t> blanch_num_except_zero;
   std::vector<uint64_t> cnt_leaf_per_node;
-  mp.compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);
+  // mp.compute_node_connect_and_blanch_num(children, blanch_num_except_zero, cnt_leaf_per_node);
+  mp.compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
   auto show_internal = [&]() {
     std::cerr << "children = {" << std::endl;
@@ -39,12 +40,12 @@ int main() {
       std::cerr << std::endl << "\t}," << std::endl;
     }
     std::cerr << "}" << std::endl;
-    std::cerr << "blanch_num_except_zero = {" << std::endl;
-    for (size_t i = 0; i < blanch_num_except_zero.size(); ++i) {
-      auto v = blanch_num_except_zero[i];
-      if (v == 0) continue;
-      std::cerr << "\t[" << i << "] " << v << ", " << std::endl;
-    }
+    // std::cerr << "blanch_num_except_zero = {" << std::endl;
+    // for (size_t i = 0; i < blanch_num_except_zero.size(); ++i) {
+    //   auto v = blanch_num_except_zero[i];
+    //   if (v == 0) continue;
+    //   std::cerr << "\t[" << i << "] " << v << ", " << std::endl;
+    // }
     std::cerr << "}" << std::endl;
     std::cerr << "cnt_leaf_per_node = {" << std::endl;
     for (size_t i = 0; i < cnt_leaf_per_node.size(); ++i) {
@@ -64,12 +65,12 @@ int main() {
                 { 2, 1920 },{ 5, 51392 },
         }},
   };
-  std::vector<std::pair<size_t,uint64_t>> blanch_num_except_zero_exp {
-    {0, 8},
-    {1, 2},
-    {1920, 2},
-    {38070, 4},
-  };
+  // std::vector<std::pair<size_t,uint64_t>> blanch_num_except_zero_exp {
+  //   {0, 8},
+  //   {1, 2},
+  //   {1920, 2},
+  //   {38070, 4},
+  // };
   std::vector<std::pair<size_t,uint64_t>> cnt_leaf_per_node_exp {
     {0, 8},
     {1, 8},
@@ -88,12 +89,12 @@ int main() {
       return EXIT_FAILURE;
     }
   }
-  for (auto [i,v] : blanch_num_except_zero_exp) {
-    if (v != blanch_num_except_zero[i]) {
-      show_internal();
-      return EXIT_FAILURE;
-    }
-  }
+  // for (auto [i,v] : blanch_num_except_zero_exp) {
+  //   if (v != blanch_num_except_zero[i]) {
+  //     show_internal();
+  //     return EXIT_FAILURE;
+  //   }
+  // }
   for (auto [i,v] : cnt_leaf_per_node_exp) {
     if (v != cnt_leaf_per_node[i]) {
       show_internal();
