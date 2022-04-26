@@ -23,17 +23,14 @@
 | :---: | :---: |
 | 図1 | 図2 |
 
-- match_per_leaf_numをソートしている理由について
-    - match_per_leaf_numの値が、下のようになっていると想定
-    - ex. ( {0, 8}, {3, 7}, {13, 15} ) [first:分岐位置, second:葉の数]
-    - 処理したい順としては、13 → 3 → 0分岐の順
-    - これを実現するためにソートしています
+- それ以降の処理について
+    - これまでは、後方累積和を使用していなかったため、そもそも処理が間違っていました。
+- この関数は、新しい関数と比較するために残してあるだけなので、今後は使用しないです
 
-- ソート以降の処理
-    - for分で分岐後のノード数が多い順に処理していく
-    - 初めに、分岐後のノードをchildrenより取得（同時に、子ノード以下の葉の数も取得）
-    - 葉の数が多い順にソート
-    - for分で多い順に処理
+## require_centroid_path_order_and_insert_dictionary_using_backward_cumulative関数
+- require_centroid_path_order_and_insert_dictionary関数に対し、後方累積和を適応した関数
+- 処理する順番をfront(queue)とback(stack)に保存することによって実現しています
+- front(queue)は、FIFOであることから、保存しておく必要がなく、求まった順に新しい辞書に追加するので、消す予定です
 
 ## HL分解について
 - なんとなくの理解はできました
@@ -55,4 +52,6 @@
 > mkdir build && cd build  
 > cmake ..  
 > make  
-> ./test_compute_node_connect_and_blanch_num or ./test_require_centroid_path_order_and_insert_dictionary  
+> ./test_compute_node_connect_and_blanch_num  
+> ./test_require_centroid_path_order_and_insert_dictionary  
+> ./test_require_centroid_path_order_and_insert_dictionary_using_backward_cumulative
