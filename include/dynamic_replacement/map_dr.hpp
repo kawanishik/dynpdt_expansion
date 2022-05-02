@@ -199,11 +199,24 @@ class map_dr {
 
     // 新しい辞書に登録するための関数
     template<class Map>
-    void insert_new_dic(Map& new_map, uint64_t node_id) {
-        std::string restore_key = restore_insert_string(node_id);
-        if(restore_key.size() == 0) return;
+    // void insert_new_dic(Map& new_map, uint64_t node_id, std::string prefix_str) {
+    std::string insert_new_dic(Map& new_map, uint64_t node_id, std::string prefix_str) {
+        // std::cout << "prefix_str : " << prefix_str << std::endl;
+        std::string restore_key = "";
+        if(prefix_str.size() == 0) {
+            restore_key = restore_insert_string(node_id);
+            // std::cout << "restore_key : " << restore_key << std::endl;
+            int* ptr = new_map.update(restore_key);
+            *ptr = 1;
+            return restore_key;
+        }
+        else restore_key = prefix_str + restore_node_string(node_id);
+        // std::string restore_key = restore_insert_string(node_id);
+        if(restore_key.size() == 0) return "";
         int* ptr = new_map.update(restore_key);
         *ptr = 1;
+        // std::cout << "restore_key : " << restore_key << std::endl;
+        return "";
     }
 
     // 親情報などを保存するときに使用
@@ -428,14 +441,15 @@ class map_dr {
 
     // 後方累積和を使用して、CPD順を求めたもの
     template<class Map>
-    void require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(
+    std::string require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(
                                                                         Map& new_map,
                                                                         std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
                                                                         uint64_t node_id,
                                                                         const std::vector<uint64_t>& cnt_leaf_per_node,
-                                                                        std::vector<uint64_t>& box) {
+                                                                        uint64_t common_prefix_length) {
+        // std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
         // 一番下まで、たどり着いた時の処理
-        if(children[node_id].size() == 0) return;
+        if(children[node_id].size() == 0) return "";
 
         std::map<uint64_t, uint64_t> start_pos;                         // children[node_id]内のmatchのスタート位置を保存
         temporary_set_of_variable_require_backward variable(UINT64_MAX, 0, children[node_id].size(), 0, 0);
@@ -518,23 +532,41 @@ class map_dr {
             }
         }
         
+        std::string compared_string = ""; // 帰りがけで取得した文字列を保存しておく文字列
         while(!front.empty()) {
             uint64_t num = front.front();
             front.pop();
             variable.pre_match = variable.match_per_leaf_num[num].first;
-            std::vector<std::pair<uint64_t, uint64_t>> children_shelter;                // first:cnt_leaf_per_node[], second:next_id
+            std::vector<std::pair<uint64_t, uint64_t>> children_shelter;    // first:cnt_leaf_per_node[], second:next_id
             for(uint64_t i=start_pos[variable.pre_match]-1; i < variable.children_size; i++) {
                 if(variable.pre_match != children[node_id][i].first) break;
                 uint64_t next_id = children[node_id][i].second;
                 children_shelter.emplace_back(cnt_leaf_per_node[next_id], next_id);
             }
-            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
-                return l.first > r.first;
-            });
+
+            auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
+            require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, max_pos->second, cnt_leaf_per_node, common_prefix_length+variable.pre_match+1);
+            // ここで、original_stringからcompare_prefix_length分のみを抜き出し、insert_new_dicの関数の引数とする
+            if(compared_string.size() == 0) {
+                compared_string = insert_new_dic(new_map, max_pos->second, "");
+            } else {
+                uint64_t prefix_length = common_prefix_length + variable.pre_match;
+                if(variable.pre_match != 0) prefix_length += 1;
+                insert_new_dic(new_map, max_pos->second, compared_string.substr(0, prefix_length));
+            }
+            // insert_new_dic(new_map, max_pos->second, "");
+            // box.push_back(s.second);
             for(auto& s : children_shelter) {
-                require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, box);
-                // insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
-                box.push_back(s.second);
+                if(s.second == max_pos->second) continue;
+                std::string return_string = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, common_prefix_length+variable.pre_match+1);
+                if(return_string.size() == 0) return_string = insert_new_dic(new_map, s.second, "");
+                else {
+                    uint64_t prefix_length = common_prefix_length + variable.pre_match;
+                    if(variable.pre_match != 0) prefix_length += 1;
+                    insert_new_dic(new_map, s.second, return_string.substr(0, prefix_length));
+                }
+                // insert_new_dic(new_map, s.second, "");
+                // box.push_back(s.second);
             }
         }
         while(!back.empty()) {
@@ -547,17 +579,35 @@ class map_dr {
                 uint64_t next_id = children[node_id][i].second;
                 children_shelter.emplace_back(cnt_leaf_per_node[next_id], next_id);
             }
-            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
-                return l.first > r.first;
-            });
+
+            auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
+            std::string return_string = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, max_pos->second, cnt_leaf_per_node, common_prefix_length+variable.pre_match+1);
+            if(return_string.size() == 0) return_string = insert_new_dic(new_map, max_pos->second, "");
+            else {
+                uint64_t prefix_length = common_prefix_length + variable.pre_match;
+                if(variable.pre_match != 0) prefix_length += 1;
+                insert_new_dic(new_map, max_pos->second, return_string.substr(0, prefix_length));
+            }
+            // insert_new_dic(new_map, max_pos->second, "");
+            // box.push_back(s.second);
             for(auto& s : children_shelter) {
-                require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, box);
-                // insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
-                box.push_back(s.second);
+                if(s.second == max_pos->second) continue;
+                return_string = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, common_prefix_length+variable.pre_match+1);
+                if(return_string.size() == 0) return_string = insert_new_dic(new_map, max_pos->second, "");
+                else {
+                    uint64_t prefix_length = common_prefix_length + variable.pre_match;
+                    if(variable.pre_match != 0) prefix_length += 1;
+                    insert_new_dic(new_map, s.second, return_string.substr(0, prefix_length));
+                }
+                // insert_new_dic(new_map, s.second, "");
+                // box.push_back(s.second);
             }
         }
         // if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id); // 新しい辞書に登録（未実装）
-        if(node_id == hash_trie_.get_root()) box.push_back(node_id);
+        // if(node_id == hash_trie_.get_root()) box.push_back(node_id);
+        if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id, "");
+        // std::cout << "compared_string : " << compared_string << std::endl;
+        return compared_string;
     }
 
     // 特定のノードから、get_root()までの文字列を復元する
@@ -607,9 +657,21 @@ class map_dr {
         return insert_string;
     }
 
+    // 特定のノードに紐づいている文字列を返す
+    std::string restore_node_string(uint64_t node_id) {
+        std::string node_string = "";
+        auto fs = label_store_.return_string_pointer(node_id);
+        if(fs == nullptr) return node_string;
+        for(uint64_t i=0;; i++) {
+            if(fs[i] == 0x00) break;
+            node_string += fs[i];
+        }
+        return node_string;
+    }
+
     // 動的にいれかえるための関数
     // value_type* dynamic_replacement(char_range& key) {
-    void dynamic_replacement(std::vector<uint64_t>& box) {
+    void dynamic_replacement() {
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
         // std::vector<uint64_t> blanch_num_except_zero;                    // 0分岐を除く累積和
         std::vector<uint64_t> cnt_leaf_per_node;
@@ -619,8 +681,8 @@ class map_dr {
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         // require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, box);
-        require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, box);
-        // std::swap(*this, new_map); // 時間がかかるので、注意
+        require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0);
+        std::swap(*this, new_map); // 時間がかかるので、注意
 
         // return update(key);
     }
