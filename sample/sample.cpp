@@ -172,7 +172,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/enwiki-20150205.line";
     // std::string input_name = "../../../dataset/wordnet-3.0-word";
     // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
-    // std::string input_name = "../../../dataset/s14.txt"; // 大学で実験するとき
+    // std::string input_name = "../../../dataset/s17.txt"; // 大学で実験するとき
 
     std::ifstream ifs(input_name);
     if (!ifs) {
@@ -376,25 +376,25 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         Stopwatch sw;
         // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
-        std::vector<uint64_t> box; // ノードの復元順を調べる際に使用
-        map.dynamic_replacement(box);
+        // std::vector<uint64_t> box; // ノードの復元順を調べる際に使用
+        map.dynamic_replacement();
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
 
         // write_file(box);
 
-        // bool test_check = true;
-        // map.reset_cnt_hash();
-        // for(int i=0; i < int(keys.size()); i++) {
-        //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
-        //     const int *ptr = map.find(keys[i]);
-        //     if(not (ptr != nullptr and *ptr == 1)) {
-        //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
-        //         test_check = false;
-        //         return;
-        //     }
-        // }
-        // std::cout << (test_check ? "ok." : "failed.") << std::endl;
+        bool test_check = true;
+        map.reset_cnt_hash();
+        for(int i=0; i < int(keys.size()); i++) {
+            // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+            const int *ptr = map.find(keys[i]);
+            if(not (ptr != nullptr and *ptr == 1)) {
+                std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+                test_check = false;
+                return;
+            }
+        }
+        std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
         if(i == -1) {
             map.reset_cnt_hash();
