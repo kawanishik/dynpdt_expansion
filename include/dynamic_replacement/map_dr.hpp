@@ -222,7 +222,12 @@ class map_dr {
     }
 
     template<class Map>
-    void test_insert_new_dic(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string) {
+    void test_insert_new_dic(Map& new_map,
+                             uint64_t node_id,
+                             uint64_t common_prefix_length,
+                             std::string& store_string,
+                             std::vector<std::string>& restore_keys_order,
+                             std::vector<std::pair<std::string, uint64_t>>& not_leaf_node_compare_string) {
         // std::cout << "prefix_str : " << prefix_str << std::endl;
         std::string restore_key = "";
         if(common_prefix_length == 0) {
@@ -231,6 +236,7 @@ class map_dr {
             store_string = restore_key;
             int* ptr = new_map.update(restore_key);
             *ptr = 1;
+            restore_keys_order.emplace_back(restore_key);
             return;
             // return restore_key;
         }
@@ -239,8 +245,10 @@ class map_dr {
         if(restore_key.size() == 0) return;
         int* ptr = new_map.update(restore_key);
         *ptr = 1;
-        std::cout << "store_string: " << store_string << std::endl;
-        std::cout << "restore_key : " << restore_key << std::endl;
+        restore_keys_order.emplace_back(restore_key);
+        not_leaf_node_compare_string.emplace_back(restore_key, common_prefix_length);
+        // std::cout << "store_string: " << store_string << std::endl;
+        // std::cout << "restore_key : " << restore_key << std::endl;
         // return "";
     }
 
@@ -633,7 +641,9 @@ class map_dr {
                                             uint64_t node_id,
                                             const std::vector<uint64_t>& cnt_leaf_per_node,
                                             uint64_t common_prefix_length,
-                                            std::string& store_string) {
+                                            std::string& store_string,
+                                            std::vector<std::string>& restore_keys_order,
+                                            std::vector<std::pair<std::string, uint64_t>>& not_leaf_node_compare_string) {
         // std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
         // 一番下まで、たどり着いた時の処理
         if(children[node_id].size() == 0) return true;
@@ -733,20 +743,20 @@ class map_dr {
             // 特定の分岐内の内、分岐後の葉の数が多いnext_idを取得
             auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
             uint64_t next_common_prefix_length = common_prefix_length+variable.pre_match+1; // 行き掛けで渡す共通のprefixの長さを伝搬する
-            bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+            bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
             // ここで、original_stringからcompare_prefix_length分のみを抜き出し、insert_new_dicの関数の引数とする
             if(is_leaf_node) {
-                test_insert_new_dic(new_map, max_pos->second, 0, store_string);
+                test_insert_new_dic(new_map, max_pos->second, 0, store_string, restore_keys_order, not_leaf_node_compare_string);
             } else {
-                test_insert_new_dic(new_map, max_pos->second, next_common_prefix_length, store_string);
+                test_insert_new_dic(new_map, max_pos->second, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
             }
             for(auto& s : children_shelter) {
                 if(s.second == max_pos->second) continue;
-                bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+                bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
                 if(is_leaf_node) {
-                    test_insert_new_dic(new_map, s.second, 0, store_string);
+                    test_insert_new_dic(new_map, s.second, 0, store_string, restore_keys_order, not_leaf_node_compare_string);
                 } else {
-                    test_insert_new_dic(new_map, s.second, next_common_prefix_length, store_string);
+                    test_insert_new_dic(new_map, s.second, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
                 }
             }
         }
@@ -764,24 +774,24 @@ class map_dr {
             // 特定の分岐内の内、分岐後の葉の数が多いnext_idを取得
             auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
             uint64_t next_common_prefix_length = common_prefix_length+variable.pre_match+1;
-            bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+            bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
             if(is_leaf_node) {
-                test_insert_new_dic(new_map, max_pos->second, 0, store_string);
+                test_insert_new_dic(new_map, max_pos->second, 0, store_string, restore_keys_order, not_leaf_node_compare_string);
             } else {
-                test_insert_new_dic(new_map, max_pos->second, next_common_prefix_length, store_string);
+                test_insert_new_dic(new_map, max_pos->second, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
             }
             for(auto& s : children_shelter) {
                 if(s.second == max_pos->second) continue;
-                bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+                bool is_leaf_node = test_CPD_order_and_insert_new_dic(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
                 if(is_leaf_node) {
-                    test_insert_new_dic(new_map, s.second, 0, store_string);
+                    test_insert_new_dic(new_map, s.second, 0, store_string, restore_keys_order, not_leaf_node_compare_string);
                 } else {
-                    test_insert_new_dic(new_map, s.second, next_common_prefix_length, store_string);
+                    test_insert_new_dic(new_map, s.second, next_common_prefix_length, store_string, restore_keys_order, not_leaf_node_compare_string);
                 }
             }
         }
 
-        if(node_id == hash_trie_.get_root()) test_insert_new_dic(new_map, node_id, 0, store_string); // 新しい辞書に登録（未実装）
+        if(node_id == hash_trie_.get_root()) test_insert_new_dic(new_map, node_id, 0, store_string, restore_keys_order, not_leaf_node_compare_string); // 新しい辞書に登録（未実装）
 
         return false;
     }
