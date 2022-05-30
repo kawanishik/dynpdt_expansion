@@ -362,102 +362,8 @@ class map_dr {
         std::vector<std::pair<uint64_t, uint64_t>> match_per_leaf_num;  // first:match, second:cnt_leaf_per_node[]
     };
 
-    // 求めたノードの関係からCPD順を求める
-    // 最終的には、ここで新しい辞書に対して、キーを追加する(まだ、未実装)
-    template<class Map>
-    void require_centroid_path_order_and_insert_dictionary(Map& new_map,
-                                                           std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
-                                                           uint64_t node_id,
-                                                           const std::vector<uint64_t>& cnt_leaf_per_node,
-                                                           std::vector<uint64_t>& box) {
-        // 一番下まで、たどり着いた時の処理
-        if(children[node_id].size() == 0) return;
 
-        std::map<uint64_t, uint64_t> start_pos;                         // children[node_id]内のmatchのスタート位置を保存
-        temporary_set_of_variable_require variable(UINT64_MAX, 0, children[node_id].size(), 0, 0);
-
-        // 現在のchildrent[node_id]内は以下のようになっている
-        // ex. ({3, 54}, {0, 4}, {13, 23}, {0, 5})
-        // ソートして、下のように修正
-        // ex. ({0, 4}, {0, 5}, {3, 54}, {13, 23})
-        std::sort(children[node_id].begin(), children[node_id].end(), [] (auto l, auto r) {
-            return l.first < r.first;
-        });
-        
-        // TODO: children の match を座標圧縮して処理する
-        std::vector<uint64_t> matches(children[node_id].size());
-        std::transform(children[node_id].begin(), children[node_id].end(), matches.begin(), [](auto& c) {return c.first;});
-        matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
-
-        // メモリを最初に確保し、childrenの先頭から順に2分探索で探す
-        // matchごとに、分岐後の葉の数をカウント
-        // children           : ({0, 4}, {0, 5}, {3, 54}, {13, 23})
-        // match_per_leaf_num : ({0, 8}, {3, 7}, {13, 15})
-        // start_pos          : ({0, 1}, {3, 3}, {13, 4})
-        variable.match_per_leaf_num.resize(matches.size());
-        variable.pre_match = children[node_id][0].first;
-        start_pos[variable.pre_match] = 1;
-        for(uint64_t i=0; i < variable.children_size; i++) {
-            auto [match, next_id] = children[node_id][i];
-            if(variable.pre_match != match) {
-                variable.pre_match = match;
-                start_pos[match] = i + 1;
-                variable.pos++;
-            }
-            // uint64_t pos = std::lower_bound(matches.begin(), matches.end(), match) - matches.begin();
-            variable.match_per_leaf_num[variable.pos].first = match;
-            variable.match_per_leaf_num[variable.pos].second += cnt_leaf_per_node[next_id];
-            if(match == 0) variable.zero_blanch_num += cnt_leaf_per_node[next_id];  // 0分岐の和
-            else variable.cumulative_sum += cnt_leaf_per_node[next_id];             // 0分岐以外の累積和
-        }
-
-        bool exist_zero_blanch = variable.zero_blanch_num != 0;
-        // zero分岐が存在するときは、その部分以外をソートする
-        // 上のmatch_per_leaf_numの値を使用すると
-        // match_per_leaf_num : ({0, 8}, {13, 15}, {3, 7})
-        if(exist_zero_blanch) {
-            std::sort(variable.match_per_leaf_num.begin()+1, variable.match_per_leaf_num.end(), [] (auto l, auto r) {
-                return l.second > r.second;
-            });
-        } else {
-            std::sort(variable.match_per_leaf_num.begin(), variable.match_per_leaf_num.end(), [] (auto l, auto r) {
-                return l.second > r.second;
-            });
-        }
-
-        // zero分岐を最後に処理するのかを判定
-        bool do_zero_blanch_last = false;
-        if(exist_zero_blanch) {
-            if(variable.zero_blanch_num <= variable.cumulative_sum) do_zero_blanch_last = true;
-        }
-
-        // 分岐後の葉の数が多い順に処理していく
-        // 初めに、対象とするmatchの子ノードとそれ以降の葉の数を保存
-        variable.match_per_leaf_num_size = variable.match_per_leaf_num.size();
-        for(uint64_t i=0; i < variable.match_per_leaf_num_size; i++) {
-            variable.pos = (do_zero_blanch_last ? (i+1) % variable.match_per_leaf_num_size : i); // zero分岐を最後に処理するのかによって、posの値が変化する
-            std::vector<std::pair<uint64_t, uint64_t>> children_shelter;                // first:cnt_leaf_per_node[], second:next_id
-            variable.pre_match = variable.match_per_leaf_num[variable.pos].first;
-            for(uint64_t j=start_pos[variable.pre_match]-1; j < variable.children_size; j++) {
-                if(variable.pre_match != children[node_id][j].first) break;
-                uint64_t next_id = children[node_id][j].second;
-                children_shelter.emplace_back(cnt_leaf_per_node[next_id], next_id);
-            }
-            std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
-                return l.first > r.first;
-            });
-            for(auto& s : children_shelter) {
-                require_centroid_path_order_and_insert_dictionary(new_map, children, s.second, cnt_leaf_per_node, box);
-                // insert_new_dic(new_map, s.second); // 新しい辞書に登録（未実装）
-                box.push_back(s.second);
-            }
-        }
-
-        // if(node_id == hash_trie_.get_root()) insert_new_dic(new_map, node_id); // 新しい辞書に登録（未実装）
-        if(node_id == hash_trie_.get_root()) box.push_back(node_id);
-    }
-
-    // 一時変数をまとめたもの
+    // require_centroid_path_order_and_insert_dictionaryで使用する一時変数をまとめたもの
     struct temporary_set_of_variable_require_backward {
         temporary_set_of_variable_require_backward(uint64_t pm, uint64_t zbn, uint64_t cs, uint64_t p, uint64_t cus) :
                         pre_match{pm}, zero_blanch_num{zbn}, children_size{cs}, pos{p}, cumulative_sum{cus} {}
@@ -474,13 +380,13 @@ class map_dr {
 
     // 後方累積和を使用して、CPD順を求めたもの
     template<class Map>
-    bool require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(
-                                                                        Map& new_map,
-                                                                        std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
-                                                                        uint64_t node_id,
-                                                                        const std::vector<uint64_t>& cnt_leaf_per_node,
-                                                                        uint64_t common_prefix_length,
-                                                                        std::string& store_string) {
+    bool require_centroid_path_order_and_insert_dictionary(
+                                                            Map& new_map,
+                                                            std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+                                                            uint64_t node_id,
+                                                            const std::vector<uint64_t>& cnt_leaf_per_node,
+                                                            uint64_t common_prefix_length,
+                                                            std::string& store_string) {
         // std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
         // 一番下まで、たどり着いた時の処理
         if(children[node_id].size() == 0) return true;
@@ -580,7 +486,7 @@ class map_dr {
             // 特定の分岐内の内、分岐後の葉の数が多いnext_idを取得
             auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
             uint64_t next_common_prefix_length = common_prefix_length+variable.pre_match+1; // 行き掛けで渡す共通のprefixの長さを伝搬する
-            bool is_leaf_node = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+            bool is_leaf_node = require_centroid_path_order_and_insert_dictionary(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
             // ここで、original_stringからcompare_prefix_length分のみを抜き出し、insert_new_dicの関数の引数とする
             if(is_leaf_node) {
                 insert_new_dic(new_map, max_pos->second, 0, store_string);
@@ -590,7 +496,7 @@ class map_dr {
             // insert_new_dic(new_map, max_pos->second, "");
             for(auto& s : children_shelter) {
                 if(s.second == max_pos->second) continue;
-                bool is_leaf_node = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+                bool is_leaf_node = require_centroid_path_order_and_insert_dictionary(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
                 if(is_leaf_node) {
                     insert_new_dic(new_map, s.second, 0, store_string);
                 } else {
@@ -612,7 +518,7 @@ class map_dr {
             // 特定の分岐内の内、分岐後の葉の数が多いnext_idを取得
             auto max_pos = std::max_element(children_shelter.begin(), children_shelter.end());
             uint64_t next_common_prefix_length = common_prefix_length+variable.pre_match+1;
-            bool is_leaf_node = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+            bool is_leaf_node = require_centroid_path_order_and_insert_dictionary(new_map, children, max_pos->second, cnt_leaf_per_node, next_common_prefix_length, store_string);
             if(is_leaf_node) {
                 insert_new_dic(new_map, max_pos->second, 0, store_string);
             } else {
@@ -620,7 +526,7 @@ class map_dr {
             }
             for(auto& s : children_shelter) {
                 if(s.second == max_pos->second) continue;
-                bool is_leaf_node = require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
+                bool is_leaf_node = require_centroid_path_order_and_insert_dictionary(new_map, children, s.second, cnt_leaf_per_node, next_common_prefix_length, store_string);
                 if(is_leaf_node) {
                     insert_new_dic(new_map, s.second, 0, store_string);
                 } else {
@@ -866,9 +772,8 @@ class map_dr {
         map_dr new_map(hash_trie_.capa_bits()+1);
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
-        // require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, box);
         std::string store_string = "";
-        require_centroid_path_order_and_insert_dictionary_using_backward_cumulative(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
+        require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
         std::swap(*this, new_map); // 時間がかかるので、注意
 
         // return update(key);
