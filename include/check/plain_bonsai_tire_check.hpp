@@ -11,6 +11,8 @@
 
 namespace poplar {
 
+static double node_transition_search_time = 0.0;
+
 template <uint32_t MaxFactor = 90, typename Hasher = hash::vigna_hasher>
 class plain_bonsai_trie_check {
   private:
@@ -48,6 +50,8 @@ class plain_bonsai_trie_check {
         assert(node_id < capa_size_.size());
         assert(symb < symb_size_.size());
 
+        Stopwatch sw;
+
         if (size_ == 0) {
             return nil_id;
         }
@@ -67,6 +71,7 @@ class plain_bonsai_trie_check {
             }
             if (table_[i] == 0) {
                 // encounter an empty slot
+                node_transition_search_time += sw.get_micro_sec();
                 return nil_id;
             }
             if (table_[i] == key) {
@@ -74,6 +79,7 @@ class plain_bonsai_trie_check {
                     // cnt_linear_proving[cnt] += 1;
                     // cnt_linear_proving_all += 1;
                 // }
+                node_transition_search_time += sw.get_micro_sec();
                 return i;
             }
         }
@@ -382,6 +388,10 @@ class plain_bonsai_trie_check {
         std::cout << "--- reset_cnt_linear_proving ---" << std::endl;
         cnt_linear_proving.clear();
         cnt_linear_proving_all = 0;
+    }
+
+    double get_node_transition_search_time() {
+        return node_transition_search_time;
     }
 
     void show_cnt_compare() {

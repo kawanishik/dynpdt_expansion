@@ -406,6 +406,21 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
     }
 }
 
+template<class Map>
+void use_map_check(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
+    std::cout << "--- use_map_check ---" << std::endl;
+    // map.dynamic_replacement();
+
+    map.reset_cnt_hash();
+    double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    map.show_cnt_hash();
+    std::cout << "time_search : " << search_time << std::endl;
+
+    std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
+    std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
+}
+
 int main(int argc, char* argv[]) {
 
     std::vector<std::string> keys;                              // 辞書構築用の配列
@@ -431,6 +446,7 @@ int main(int argc, char* argv[]) {
     } else if(input_name == "check") {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
+        use_map_check(map, keys, test_keys);
         // map.call_topo();
         // multi_CP_swap(map, keys, test_keys);
     } else if(input_name == "check_CPD") {

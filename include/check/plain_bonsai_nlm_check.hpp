@@ -7,7 +7,28 @@
 #include "../poplar/basics.hpp"
 #include "../poplar/compact_vector.hpp"
 
+static double label_search_time_sum = 0.0;
+
 namespace poplar {
+
+class Stopwatch {
+  using hrc = std::chrono::high_resolution_clock;
+  hrc::time_point start_;
+ public:
+  Stopwatch() : start_(hrc::now()) {}
+  auto time_process() const {
+    return hrc::now() - start_;
+  }
+  double get_sec() const {
+    return std::chrono::duration<double>(time_process()).count();
+  }
+  double get_milli_sec() const {
+    return std::chrono::duration<double, std::milli>(time_process()).count();
+  }
+  double get_micro_sec() const {
+    return std::chrono::duration<double, std::micro>(time_process()).count();
+  }
+};
 
 template <typename Value>
 class plain_bonsai_nlm_check {
@@ -24,21 +45,26 @@ class plain_bonsai_nlm_check {
     ~plain_bonsai_nlm_check() = default;
 
     std::pair<const value_type*, uint64_t> compare(uint64_t pos, const char_range& key) const {
+    // std::pair<const value_type*, uint64_t> compare(uint64_t pos, const char_range& key) {
         assert(pos < ptrs_.size());
         assert(ptrs_[pos]);
 
+        Stopwatch sw;
         const uint8_t* ptr = ptrs_[pos].get();
 
         if (key.empty()) {
+            label_search_time_sum += sw.get_micro_sec();
             return {reinterpret_cast<const value_type*>(ptr), 0};
         }
 
         for (uint64_t i = 0; i < key.length(); ++i) {
             if (key[i] != ptr[i]) {
+                label_search_time_sum += sw.get_micro_sec();
                 return {nullptr, i};
             }
         }
 
+        label_search_time_sum += sw.get_micro_sec();
         return {reinterpret_cast<const value_type*>(ptr + key.length()), key.length()};
     }
 
@@ -144,6 +170,10 @@ class plain_bonsai_nlm_check {
     void move_ptrs() {
         std::swap(ptrs_, new_ptrs_);
         new_ptrs_ = decltype(new_ptrs_)();
+    }
+
+    double get_label_search_time() {
+        return label_search_time_sum;
     }
 
     uint64_t size() const {
