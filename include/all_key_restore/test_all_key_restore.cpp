@@ -27,6 +27,7 @@ int main() {
     }
 
     std::vector<std::string> restore_keys = mp.all_key_restore();
+    // std::vector<std::string> restore_keys = mp.all_key_restore_simple();
     std::sort(restore_keys.begin(), restore_keys.end());
 
     // 文字列が全て、復元できているのかを確認する
