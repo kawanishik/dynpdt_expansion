@@ -1293,7 +1293,7 @@ class map_check {
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
-        map_check new_map(hash_trie_.capa_bits()+1);
+        map_check new_map(hash_trie_.capa_bits());
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         std::string store_string = "";
