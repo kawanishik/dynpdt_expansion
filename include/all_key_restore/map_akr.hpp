@@ -200,7 +200,7 @@ class map_akr {
             if(fs[i] == 0x00) break; // 判定処理としてint型で4つ分使用して1を格納しているので、この判定
             restore_str += fs[i];
         }
-        restore_keys.push_back(restore_str);
+        restore_keys.emplace_back(restore_str);
 
         // 先頭ノード以外のノードに対する処理
         for(uint64_t i=first_node+1; i < hash_trie_.capa_size(); i++) {
@@ -260,7 +260,69 @@ class map_akr {
                 part_keys[node] = part_keys[node_id] + part_keys[node];
                 node_id = node;
             }
-            restore_keys.push_back(restore_str);
+            restore_keys.emplace_back(restore_str);
+        }
+
+        return restore_keys;
+    }
+
+    // 途中の文字列を保存しないバージョン
+    std::vector<std::string> all_key_restore_simple() {
+        std::vector<std::string> restore_keys;  // 復元したキーを全て保存
+
+        uint64_t first_node = hash_trie_.get_root();
+        std::string restore_str = "";
+
+        // 先頭ノードに対する処理
+        auto fs = label_store_.return_string_pointer(first_node);
+        for(uint64_t i=0;;i++) {
+            if(fs[i] == 0x00) break; // 判定処理としてint型で4つ分使用して1を格納しているので、この判定
+            restore_str += fs[i];
+        }
+        restore_keys.emplace_back(restore_str);
+
+        for(uint64_t i=first_node+1; i < hash_trie_.capa_size(); i++) {
+            if(!hash_trie_.is_use_table(i)) continue;
+            std::string restore_str = "";
+            uint64_t node_id = i;
+            auto str = label_store_.return_string_pointer(node_id);
+            if(str == nullptr) continue; // ダミーノード判定
+            for(uint64_t j=0;;j++) {
+                if(str[j] == 0x00) break;
+                restore_str += str[j];
+            }
+
+            while(node_id != first_node) {
+                auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+                auto [c, match] = restore_symb_(symb); // symbから、遷移に失敗した箇所とlabelを取得する
+                restore_str = c + restore_str; // 遷移文字を追加
+
+                uint64_t dummy_step = 0; // ダミーノード数をカウント
+                while(1) { // 親がダミーノードの場合の処理
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    if(str1 == nullptr) {
+                        dummy_step++;
+                        auto [parent_tmp, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                        parent = parent_tmp;
+                    } else {
+                        break;
+                    }
+                }
+                match += dummy_step * lambda_; // スキップした回数分足してあげる
+
+                // 親ノードの文字列からmatchまでを抜き出し、追加する
+                if(match != 0) { // matchがゼロの時は、文字列比較の一文字目で遷移しているので
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    std::string str2 = "";
+                    for(uint64_t j=0; j < match; j++) {
+                        str2 += str1[j];
+                    }
+                    restore_str = str2 + restore_str;
+                }
+
+                node_id = parent;
+            }
+            restore_keys.emplace_back(restore_str);
         }
 
         return restore_keys;
@@ -302,7 +364,8 @@ class map_akr {
     }
 
     void dynamic_replacement() {
-        std::vector<std::string> all_keys = all_key_restore();   // 文字列の復元
+        // std::vector<std::string> all_keys = all_key_restore();  // 文字列の復元
+        std::vector<std::string> all_keys = all_key_restore_simple(); // 文字列の復元
 
         map_akr new_map(hash_trie_.capa_bits());                // 新しい辞書の作成
         std::sort(all_keys.begin(), all_keys.end());
