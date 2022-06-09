@@ -12,7 +12,7 @@
 namespace {
 
 const int search_cnt = 10;
-const int search_get_string = 1000000;
+const int search_get_string = 10000000; // 10,000,000
 
 class Stopwatch {
   using hrc = std::chrono::high_resolution_clock;
@@ -383,27 +383,33 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
 
         // write_file(box);
 
-        bool test_check = true;
-        map.reset_cnt_hash();
-        for(int i=0; i < int(keys.size()); i++) {
-            // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
-            const int *ptr = map.find(keys[i]);
-            if(not (ptr != nullptr and *ptr == 1)) {
-                std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
-                test_check = false;
-                return;
-            }
-        }
-        std::cout << (test_check ? "ok." : "failed.") << std::endl;
+        // bool test_check = true;
+        // map.reset_cnt_hash();
+        // for(int i=0; i < int(keys.size()); i++) {
+        //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+        //     const int *ptr = map.find(keys[i]);
+        //     if(not (ptr != nullptr and *ptr == 1)) {
+        //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+        //         test_check = false;
+        //         return;
+        //     }
+        // }
+        // std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
         if(i == -1) {
             map.reset_cnt_hash();
             double search_time = AllDatasetSearchSpeed(map, test_keys);
-            // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+            // search_time = CalcSearchSpeed(map, keys, keys.size());
             map.show_cnt_hash();
             std::cout << "time_search : " << search_time << std::endl;
         }
     }
+
+    map.reset_cnt_hash();
+    // double search_time = AllDatasetSearchSpeed(map, test_keys);
+    double search_time = CalcSearchSpeed(map, keys, keys.size());
+    map.show_cnt_hash();
+    std::cout << "time_search : " << search_time << std::endl;
 }
 
 template<class Map>
@@ -413,12 +419,31 @@ void use_map_check(Map& map, std::vector<std::string>& keys, std::vector<std::st
 
     map.reset_cnt_hash();
     double search_time = AllDatasetSearchSpeed(map, test_keys);
-    // search_time = CalcSearchSpeed(map, keys, input_num_keys);
+    // double search_time = CalcSearchSpeed(map, keys, keys.size());
     map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
 
     std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
     std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
+}
+
+template <class Map>
+void use_map_akr(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
+    std::cout << "--- use_map_akr ---" << std::endl;
+
+    Stopwatch sw;
+    map.dynamic_replacement();
+    auto replacement_time = sw.get_milli_sec();
+    std::cout << "replacement time : " << replacement_time / 1000.0 << std::endl;
+
+    map.reset_cnt_hash();
+    // double search_time = AllDatasetSearchSpeed(map, test_keys);
+    double search_time = CalcSearchSpeed(map, keys, keys.size());
+    map.show_cnt_hash();
+    std::cout << "time_search : " << search_time << std::endl;
+
+    // std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
+    // std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -509,7 +534,11 @@ int main(int argc, char* argv[]) {
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
         multi_CP_swap(map, keys, test_keys);
-    }else {
+    } else if(input_name == "akr") { // 全てのキーを復元して、CPD順にソートし、新しい辞書に追加
+        poplar::plain_bonsai_map_akr<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+        use_map_akr(map, keys, test_keys);
+    } else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
         std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
