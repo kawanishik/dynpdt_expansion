@@ -702,6 +702,149 @@ class map_dr {
         return false;
     }
 
+    // 再帰関数を使用せずにCPD順を求めるための関数
+    // cpd順を追加する順序の最後から順に求めている
+    // 再帰を使用していた時とは異なり、cpd順を求めながら、新しい辞書に登録することはできない
+    // template <class Map>
+    std::stack<uint64_t> require_centroid_path_order_not_using_recursion(//Map& new_map,
+                                                        std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children,
+                                                        const std::vector<uint64_t>& cnt_leaf_per_node) {
+                                                        // uint64_t common_prefix_length,
+                                                        // std::string& store_string,
+                                                        // std::vector<std::string>& restore_keys_order,
+                                                        // std::vector<std::pair<std::string, uint64_t>>& not_leaf_node_compare_string) {
+        uint64_t node_id = hash_trie_.get_root();   
+        std::stack<uint64_t> process_ord;   // 処理するノード順
+        process_ord.push(node_id);
+        std::stack<uint64_t> cpd_ord;       // 求めたCPD順
+
+        while(!process_ord.empty()) {
+            node_id = process_ord.top();
+            process_ord.pop();
+            cpd_ord.push(node_id);      // cpd順を下から順に求めるため
+            // std::cout << node_id << " : " << node_id << std::endl;
+
+            uint64_t children_size = children[node_id].size();
+            if(children_size == 0) continue;
+
+            std::map<uint64_t, uint64_t> start_pos; // children[node_id]内のmatchのスタート位置を保存
+
+            std::sort(children[node_id].begin(), children[node_id].end(), [] (auto l, auto r) {  // 子ノードの中で、分岐順でソート
+                return l.first < r.first;
+            });
+
+            // 座標圧縮
+            std::vector<uint64_t> matches(children[node_id].size());
+            std::transform(children[node_id].begin(), children[node_id].end(), matches.begin(), [](auto& c) {return c.first;});
+            matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
+
+            // 
+            std::vector<std::pair<uint64_t, uint64_t>> match_per_leaf_num(matches.size());   // 分岐位置ごとの子の数の合計
+            uint64_t pre_match = children[node_id][0].first;            // どこに保存するのか
+            start_pos[pre_match] = 1;
+            uint64_t pos = 0;
+            uint64_t zero_blanch_num = 0;
+            uint64_t cumulative_sum = 0;
+            for(uint64_t i=0; i < children_size; i++) {
+                auto [match, next_id] = children[node_id][i];
+                if(pre_match != match) {
+                    pre_match = match;
+                    start_pos[match] = i+1;
+                    pos++;
+                }
+                match_per_leaf_num[pos].first = match;
+                match_per_leaf_num[pos].second += cnt_leaf_per_node[next_id];
+                if(match == 0) zero_blanch_num += cnt_leaf_per_node[next_id];
+                else cumulative_sum += cnt_leaf_per_node[next_id];
+            }
+
+            bool exist_zero_blanch = zero_blanch_num != 0;
+            // 後方累積和
+            uint64_t size;
+            std::vector<uint64_t> backward_cumulative_num;
+            if(exist_zero_blanch) { // Zero分岐が存在する場合
+                size = matches.size() - 1;
+                backward_cumulative_num.resize(size, 0);
+                for(int64_t i=size-1; i >= 0; i--) {
+                    if(i == (size-1)) backward_cumulative_num[i] = match_per_leaf_num[i].second;
+                    else backward_cumulative_num[i] = backward_cumulative_num[i+1] + match_per_leaf_num[i].second;
+                }
+            } else {
+                size = matches.size();
+                backward_cumulative_num.resize(size, 0);
+                for(int64_t i=size-1; i >= 0; i--) {
+                    if(i == (size-1)) backward_cumulative_num[i] = match_per_leaf_num[i].second;
+                    else backward_cumulative_num[i] = backward_cumulative_num[i+1] + match_per_leaf_num[i].second;
+                }
+            }
+
+            // 処理する順番を決める
+            // 元の処理だと、優先度が高い順に求めていた
+            // ここでは、優先度が低い順に求めることによって、処理する順番が遅い順にスタックに詰めることによって、処理を実現する
+            // 下のstackとqueueに格納するのは、matchなので、注意
+            std::queue<uint64_t> front; // 辞書に追加する際に、対象とするノードが早い順にstackに格納するので、このままでよい
+            std::stack<uint64_t> back;
+
+            if(exist_zero_blanch) {
+                if(zero_blanch_num <= cumulative_sum) back.push(0);
+                else front.push(0);
+            }
+
+            if(size > 0) {
+                for(uint64_t i=0; i < size; i++) {
+                    uint64_t pos = exist_zero_blanch ? (i+1) : (i);
+                    if(i == (size-1)) {
+                        front.push(pos);
+                    } else {
+                        if(match_per_leaf_num[pos].second > backward_cumulative_num[i+1]) {
+                            front.push(pos);
+                        } else {
+                            back.push(pos);
+                        }
+                    }
+                }
+            }
+
+            while(!front.empty()) {
+                uint64_t num = front.front();
+                front.pop();
+                pre_match = match_per_leaf_num[num].first;
+                std::vector<std::pair<uint64_t, uint64_t>> children_shelter;    // first:cnt_per_node[], second:next_id
+                for(uint64_t i=start_pos[pre_match]-1; i < children_size; i++) {
+                    if(pre_match != children[node_id][i].first) break;
+                    uint64_t next_id = children[node_id][i].second;
+                    children_shelter.emplace_back(cnt_leaf_per_node[next_id], next_id);
+                }
+
+                // 特定の分岐内の内、分岐後の葉の数が多い順にソート
+                std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
+                    return l.first > r.first;
+                });
+
+                // 求めた順にprocess_ordに格納していく
+                for(auto child : children_shelter) process_ord.push(child.second);
+            }
+            while(!back.empty()) {
+                uint64_t num = back.top();
+                back.pop();
+                pre_match = match_per_leaf_num[num].first;
+                std::vector<std::pair<uint64_t, uint64_t>> children_shelter;    // first:cnt_per_node[], second:next_id
+                for(uint64_t i=start_pos[pre_match]-1; i < children_size; i++) {
+                    if(pre_match != children[node_id][i].first) break;
+                    uint64_t next_id = children[node_id][i].second;
+                    children_shelter.emplace_back(cnt_leaf_per_node[next_id], next_id);
+                }
+                // 特定の分岐内の内、分岐後の葉の数が多い順にソート
+                std::sort(children_shelter.begin(), children_shelter.end(), [] (auto l, auto r) {
+                    return l.first > r.first;
+                });
+                // 求めた順にprocess_ordに格納していく
+                for(auto child : children_shelter) process_ord.push(child.second);
+            }
+        }
+        return cpd_ord;
+    }
+
     // 特定のノードから、get_root()までの文字列を復元する
     std::string restore_insert_string(uint64_t node_id) {
         std::string insert_string = ""; // ここに文字列を格納して、新しい辞書に挿入する
