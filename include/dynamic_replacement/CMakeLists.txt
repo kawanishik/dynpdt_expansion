@@ -13,3 +13,6 @@ add_test(test_require_centroid_path_order_and_insert_dictionary_using_backward_c
 
 add_executable(test_restore_string test_restore_string.cpp)
 add_test(test_restore_string test_restore_string)
+
+add_executable(test_CPD_order_not_recursion test_CPD_order_not_recursion.cpp)
+add_test(test_CPD_order_not_recursion test_CPD_order_not_recursion)
