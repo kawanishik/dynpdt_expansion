@@ -116,7 +116,7 @@ class map_dr {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
-        // char_range tmp_key = key;
+        char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -148,11 +148,11 @@ class map_dr {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    expand_if_needed_(node_id);
-                    // if(is_need_expand()) {
-                    //     std::cout << "key : " << tmp_key.begin << std::endl;
-                    //     return dynamic_replacement(tmp_key);
-                    // }
+                    // expand_if_needed_(node_id);
+                    if(is_need_expand()) {
+                        std::cout << "key : " << tmp_key.begin << std::endl;
+                        return dynamic_replacement(tmp_key);
+                    }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -172,11 +172,11 @@ class map_dr {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                expand_if_needed_(node_id);
-                // if(is_need_expand()) {
-                //     std::cout << "key : " << tmp_key.begin << std::endl;
-                //     return dynamic_replacement(tmp_key);
-                // }
+                // expand_if_needed_(node_id);
+                if(is_need_expand()) {
+                    std::cout << "key : " << tmp_key.begin << std::endl;
+                    return dynamic_replacement(tmp_key);
+                }
                 ++key.begin;
                 ++size_;
 
@@ -845,6 +845,17 @@ class map_dr {
         return cpd_ord;
     }
 
+    template <class Map>
+    void restore_keys_and_insert_dictionary(Map& new_map, std::stack<uint64_t>& cpd_ord) {
+        while(!cpd_ord.empty()) {
+            uint64_t node_id = cpd_ord.top();
+            cpd_ord.pop();
+            // 新しい辞書に登録
+            int* ptr = new_map.update(restore_insert_string(node_id));
+            *ptr = 1;
+        }
+    }
+
     // 特定のノードから、get_root()までの文字列を復元する
     std::string restore_insert_string(uint64_t node_id) {
         std::string insert_string = ""; // ここに文字列を格納して、新しい辞書に挿入する
@@ -905,21 +916,29 @@ class map_dr {
     }
 
     // 動的にいれかえるための関数
-    // value_type* dynamic_replacement(char_range& key) {
-    void dynamic_replacement() {
+    value_type* dynamic_replacement(char_range& key) {
+    // void dynamic_replacement() {
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
         // std::vector<uint64_t> blanch_num_except_zero;                    // 0分岐を除く累積和
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
-        map_dr new_map(hash_trie_.capa_bits());
+        // map_dr new_map(hash_trie_.capa_bits());
+        map_dr new_map(hash_trie_.capa_bits()+1);
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
-        std::string store_string = "";
-        require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
+        
+        // 再帰関数を使用する場合
+        // std::string store_string = "";
+        // require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
+        
+        // 再帰関数を使用しない場合
+        std::stack<uint64_t> cpd_ord = require_centroid_path_order_not_using_recursion(children, cnt_leaf_per_node);
+        restore_keys_and_insert_dictionary(new_map, cpd_ord);
+
         std::swap(*this, new_map); // 時間がかかるので、注意
 
-        // return update(key);
+        return update(key);
     }
 
     // Gets the number of registered keys.
