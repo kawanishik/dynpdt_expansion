@@ -929,12 +929,12 @@ class map_dr {
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         
         // 再帰関数を使用する場合
-        // std::string store_string = "";
-        // require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
+        std::string store_string = "";
+        require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
         
         // 再帰関数を使用しない場合
-        std::stack<uint64_t> cpd_ord = require_centroid_path_order_not_using_recursion(children, cnt_leaf_per_node);
-        restore_keys_and_insert_dictionary(new_map, cpd_ord);
+        // std::stack<uint64_t> cpd_ord = require_centroid_path_order_not_using_recursion(children, cnt_leaf_per_node);
+        // restore_keys_and_insert_dictionary(new_map, cpd_ord);
 
         std::swap(*this, new_map); // 時間がかかるので、注意
 
