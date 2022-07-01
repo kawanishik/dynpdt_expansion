@@ -148,7 +148,7 @@ class map_akr {
                 if (hash_trie_.add_child(node_id, step_symb)) {
                     // expand_if_needed_(node_id);
                     if(is_need_expand()) {
-                        std::cout << "key : " << tmp_key.begin << std::endl;
+                        // std::cout << "key : " << tmp_key.begin << std::endl;
                         return dynamic_replacement(tmp_key);
                     }
 #ifdef POPLAR_EXTRA_STATS
@@ -172,7 +172,7 @@ class map_akr {
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
                 // expand_if_needed_(node_id);
                 if(is_need_expand()) {
-                    std::cout << "key : " << tmp_key.begin << std::endl;
+                    // std::cout << "key : " << tmp_key.begin << std::endl;
                     return dynamic_replacement(tmp_key);
                 }
                 ++key.begin;
