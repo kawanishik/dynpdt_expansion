@@ -114,6 +114,7 @@ class map_akr {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
+        char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -145,7 +146,11 @@ class map_akr {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    expand_if_needed_(node_id);
+                    // expand_if_needed_(node_id);
+                    if(is_need_expand()) {
+                        std::cout << "key : " << tmp_key.begin << std::endl;
+                        return dynamic_replacement(tmp_key);
+                    }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -165,7 +170,11 @@ class map_akr {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                expand_if_needed_(node_id);
+                // expand_if_needed_(node_id);
+                if(is_need_expand()) {
+                    std::cout << "key : " << tmp_key.begin << std::endl;
+                    return dynamic_replacement(tmp_key);
+                }
                 ++key.begin;
                 ++size_;
 
@@ -363,14 +372,18 @@ class map_akr {
         }
     }
 
-    void dynamic_replacement() {
-        // std::vector<std::string> all_keys = all_key_restore();  // 文字列の復元
+    value_type* dynamic_replacement(char_range& key) {
+    // void dynamic_replacement() {
+        // std::vector<std::string> all_keys = all_key_restore();  // 文字列の復元(部分文字列保存あり)
         std::vector<std::string> all_keys = all_key_restore_simple(); // 文字列の復元
 
-        map_akr new_map(hash_trie_.capa_bits());                // 新しい辞書の作成
+        // map_akr new_map(hash_trie_.capa_bits());                // 新しい辞書の作成
+        map_akr new_map(hash_trie_.capa_bits()+1);
         std::sort(all_keys.begin(), all_keys.end());
         insert_by_centroid_path_order(new_map, all_keys.begin(), all_keys.end(), 0);
         std::swap(*this, new_map);  // 辞書を入れ替える
+
+        return update(key);
     }
 
     // Gets the number of registered keys.
@@ -487,6 +500,14 @@ class map_akr {
             node_id = node_map[node_id];
             label_store_.expand(node_map);
         }
+    }
+
+    // ハッシュテーブルの拡張が必要かを調べるための関数
+    bool is_need_expand() {
+        if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+            if(hash_trie_.needs_to_expand()) return true;
+        }
+        return false;
     }
 };
 
