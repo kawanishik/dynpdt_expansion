@@ -114,6 +114,7 @@ class map_check {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
+        char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -145,7 +146,11 @@ class map_check {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    expand_if_needed_(node_id);
+                    // expand_if_needed_(node_id);
+                    if(is_need_expand()) {
+                        std::cout << "key : " << tmp_key.begin << std::endl;
+                        return dynamic_replacement(tmp_key);
+                    }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -165,7 +170,11 @@ class map_check {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                expand_if_needed_(node_id);
+                // expand_if_needed_(node_id);
+                if(is_need_expand()) {
+                    std::cout << "key : " << tmp_key.begin << std::endl;
+                    return dynamic_replacement(tmp_key);
+                }
                 ++key.begin;
                 ++size_;
 
@@ -293,17 +302,57 @@ class map_check {
 
     template<class Map>
     void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string) {
+    // void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string, char c) {
         // std::cout << "prefix_str : " << prefix_str << std::endl;
+        // if(node_id == 32246) {
+        //     std::cout << "^^^^^^^^^^^^" << std::endl;
+        //     std::cout << "particular_part" << std::endl;
+        //     std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
+        //     std::cout << "store_string : " << store_string << std::endl;
+        //     std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
+        //     std::cout << "^^^^^^^^^^^^" << std::endl;
+        // }
+        // if(node_id == 84361) {
+        //     std::cout << "~~~~~~~~~~~~~" << std::endl;
+        //     std::cout << "particular_part" << std::endl;
+        //     std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
+        //     std::cout << "store_string : " << store_string << std::endl;
+        //     std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
+        //     std::cout << "~~~~~~~~~~~~~" << std::endl;
+        // }
         std::string restore_key = "";
         if(common_prefix_length == 0) {
             restore_key = restore_insert_string(node_id);
-            // std::cout << "restore_key : " << restore_key << std::endl;
+            if(restore_key.size() == 0) return;
+            // if(restore_key[0] == 'I') {
+            //     std::cout << "node_id : " << node_id << std::endl;
+            //     std::cout << "restore_key : " << restore_key << std::endl;
+            // }
             store_string = restore_key;
             int* ptr = new_map.update(restore_key);
             *ptr = 1;
             return;
         } else {
-            restore_key = store_string.substr(0, common_prefix_length) + restore_node_string(node_id);
+            // restore_key = store_string.substr(0, common_prefix_length-1) + c + restore_node_string(node_id);
+            // restore_key = store_string.substr(0, common_prefix_length) + restore_node_string(node_id);
+
+            // 遷移文字を取得し、文字列を復元する
+            auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+            auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
+
+            if(common_prefix_length == 1) restore_key = c + restore_node_string(node_id);
+            else restore_key = store_string.substr(0, common_prefix_length-1) + c + restore_node_string(node_id);
+
+            // if(restore_key[0] == 'I') {
+            //     std::cout << "node_id : " << node_id << std::endl;
+            //     std::cout << "restore_key : " << restore_key << std::endl;
+            // }
+            // if(node_id == 32246) {
+            //     std::cout << "store_string : " << store_string << std::endl;
+            //     std::cout << "restore_key  : " << restore_key << std::endl;
+            //     std::cout << "node_string  : " << restore_node_string(node_id) << std::endl;
+            //     std::cout << "c : " << c << std::endl;
+            // }
         }
         // std::string restore_key = restore_insert_string(node_id);
         if(restore_key.size() == 0) return;
@@ -1287,20 +1336,156 @@ class map_check {
         return false;
     }
 
-    void dynamic_replacement() {
+    value_type* dynamic_replacement(char_range& key) {
+    // void dynamic_replacement() {
+        // std::cout << "--- dynamic_replacement ---" << std::endl;
+
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
         // std::vector<uint64_t> blanch_num_except_zero;                    // 0分岐を除く累積和
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
-        map_check new_map(hash_trie_.capa_bits());
+        // std::cout << "is_leaf : " << children[108491].size() << std::endl;
+        // std::cout << cnt_leaf_per_node[108491] << std::endl;
+        // std::cout << children[32246][0].first << " : " << children[32246][0].second << std::endl;
+
+        map_check new_map(hash_trie_.capa_bits()+1);
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         std::string store_string = "";
         require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
         std::swap(*this, new_map); // 時間がかかるので、注意
 
-        // return update(key);
+        return update(key);
+    }
+
+    void write_file(std::vector<std::string>& tmp_keys) {
+        std::ofstream of;
+        std::string filename = "../../../dataset/enwiki_restore.txt";
+        of.open(filename, std::ios::out);
+        for(auto b : tmp_keys) {
+            of << b << std::endl;
+        }
+        of.close();
+    }
+
+    // 辞書に含まれている全ての文字列を復元し、正確に復元されているのかを確かめる
+    void restore_and_compare(std::vector<std::string>& keys) {
+        std::cout << "--- restore_and_compare ---" << std::endl;
+        std::vector<std::string> restore_keys = all_key_restore_simple();
+        // uint64_t table_size = hash_trie_.size();
+        // int cnt = 0;
+        // for(uint64_t i=hash_trie_.get_root(); i < table_size; i++) {
+        //     if(!hash_trie_.is_use_table(i)) continue;
+        //     std::string tmp_key = restore_insert_string(i);
+        //     cnt++;
+        //     if(tmp_key.size() != 0) {
+        //         restore_keys.emplace_back(tmp_key);
+        //     }
+        // }
+
+        write_file(restore_keys);
+
+        if(keys.size() != restore_keys.size()) {
+            std::cout << "size is different" << std::endl;
+            std::cout << "keys_size : " << keys.size() << std::endl;
+            std::cout << "restore_keys_size : " << restore_keys.size() << std::endl;
+            // std::cout << "cnt : " << cnt << std::endl;
+            return;
+        }
+
+        std::sort(keys.begin(), keys.end());
+        std::sort(restore_keys.begin(), restore_keys.end());
+
+        // 文字列の比較
+        uint64_t cnt = 0;
+        uint64_t size = keys.size();
+        for(uint64_t i=0; i < size; i++) {
+            if(keys[i] != restore_keys[i]) {
+                cnt++;
+                // std::cout << keys[i] << " : " << restore_keys[i] << std::endl;
+                std::cout << cnt << std::endl;
+                std::cout << keys[i] << std::endl;
+                std::cout << restore_keys[i] << std::endl;
+                const int* ptr1 = find(keys[i]);
+                if(not (ptr1 != nullptr and *ptr1 == 1)) {
+                    std::cout << "fails" << std::endl;
+                } else {
+                    std::cout << "success" << std::endl;
+                }
+                const int* ptr2 = find(restore_keys[i]);
+                if(not (ptr2 != nullptr and *ptr2 == 1)) {
+                    std::cout << "fails" << std::endl;
+                } else {
+                    std::cout << "success" << std::endl;
+                }
+            }
+        }
+        std::cout << "cnt : " << cnt << std::endl;
+
+        std::cout << "ok." << std::endl;
+    }
+
+    // 途中の文字列を保存しないバージョン
+    std::vector<std::string> all_key_restore_simple() {
+        std::vector<std::string> restore_keys;  // 復元したキーを全て保存
+
+        uint64_t first_node = hash_trie_.get_root();
+        std::string restore_str = "";
+
+        // 先頭ノードに対する処理
+        auto fs = label_store_.return_string_pointer(first_node);
+        for(uint64_t i=0;;i++) {
+            if(fs[i] == 0x00) break; // 判定処理としてint型で4つ分使用して1を格納しているので、この判定
+            restore_str += fs[i];
+        }
+        restore_keys.emplace_back(restore_str);
+
+        for(uint64_t i=first_node+1; i < hash_trie_.capa_size(); i++) {
+            if(!hash_trie_.is_use_table(i)) continue;
+            std::string restore_str = "";
+            uint64_t node_id = i;
+            auto str = label_store_.return_string_pointer(node_id);
+            if(str == nullptr) continue; // ダミーノード判定
+            for(uint64_t j=0;;j++) {
+                if(str[j] == 0x00) break;
+                restore_str += str[j];
+            }
+
+            while(node_id != first_node) {
+                auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+                auto [c, match] = restore_symb_(symb); // symbから、遷移に失敗した箇所とlabelを取得する
+                restore_str = c + restore_str; // 遷移文字を追加
+
+                uint64_t dummy_step = 0; // ダミーノード数をカウント
+                while(1) { // 親がダミーノードの場合の処理
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    if(str1 == nullptr) {
+                        dummy_step++;
+                        auto [parent_tmp, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                        parent = parent_tmp;
+                    } else {
+                        break;
+                    }
+                }
+                match += dummy_step * lambda_; // スキップした回数分足してあげる
+
+                // 親ノードの文字列からmatchまでを抜き出し、追加する
+                if(match != 0) { // matchがゼロの時は、文字列比較の一文字目で遷移しているので
+                    auto str1 = label_store_.return_string_pointer(parent);
+                    std::string str2 = "";
+                    for(uint64_t j=0; j < match; j++) {
+                        str2 += str1[j];
+                    }
+                    restore_str = str2 + restore_str;
+                }
+
+                node_id = parent;
+            }
+            restore_keys.emplace_back(restore_str);
+        }
+
+        return restore_keys;
     }
 
     // Gets the number of registered keys.
@@ -1422,6 +1607,14 @@ class map_check {
             node_id = node_map[node_id];
             label_store_.expand(node_map);
         }
+    }
+
+    // ハッシュテーブルの拡張が必要かを調べるための関数
+    bool is_need_expand() {
+        if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+            if(hash_trie_.needs_to_expand()) return true;
+        }
+        return false;
     }
 };
 

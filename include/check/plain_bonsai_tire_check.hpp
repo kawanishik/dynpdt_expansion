@@ -50,7 +50,7 @@ class plain_bonsai_trie_check {
         assert(node_id < capa_size_.size());
         assert(symb < symb_size_.size());
 
-        Stopwatch sw;
+        // Stopwatch sw;
 
         if (size_ == 0) {
             return nil_id;
@@ -71,7 +71,7 @@ class plain_bonsai_trie_check {
             }
             if (table_[i] == 0) {
                 // encounter an empty slot
-                node_transition_search_time += sw.get_micro_sec();
+                // node_transition_search_time += sw.get_micro_sec();
                 return nil_id;
             }
             if (table_[i] == key) {
@@ -79,7 +79,7 @@ class plain_bonsai_trie_check {
                     // cnt_linear_proving[cnt] += 1;
                     // cnt_linear_proving_all += 1;
                 // }
-                node_transition_search_time += sw.get_micro_sec();
+                // node_transition_search_time += sw.get_micro_sec();
                 return i;
             }
         }

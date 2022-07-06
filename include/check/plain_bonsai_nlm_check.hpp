@@ -49,22 +49,22 @@ class plain_bonsai_nlm_check {
         assert(pos < ptrs_.size());
         assert(ptrs_[pos]);
 
-        Stopwatch sw;
+        // Stopwatch sw;
         const uint8_t* ptr = ptrs_[pos].get();
 
         if (key.empty()) {
-            label_search_time_sum += sw.get_micro_sec();
+            // label_search_time_sum += sw.get_micro_sec();
             return {reinterpret_cast<const value_type*>(ptr), 0};
         }
 
         for (uint64_t i = 0; i < key.length(); ++i) {
             if (key[i] != ptr[i]) {
-                label_search_time_sum += sw.get_micro_sec();
+                // label_search_time_sum += sw.get_micro_sec();
                 return {nullptr, i};
             }
         }
 
-        label_search_time_sum += sw.get_micro_sec();
+        // label_search_time_sum += sw.get_micro_sec();
         return {reinterpret_cast<const value_type*>(ptr + key.length()), key.length()};
     }
 
