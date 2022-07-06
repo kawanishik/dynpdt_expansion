@@ -174,6 +174,10 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
     // std::string input_name = "../../../dataset/s17.txt"; // 大学で実験するとき
 
+    // std::string input_name = "../../../dataset/enwiki_partial.txt";
+    // std::string input_name = "../../../dataset/enwiki_find_miss2.txt";
+    // std::string input_name = "../../../dataset/enwiki_find_miss3.txt";
+
     std::ifstream ifs(input_name);
     if (!ifs) {
         std::cerr << "File not found input file: "<< input_name << std::endl;
@@ -314,9 +318,23 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     auto begin_size = get_process_size();
 
     Stopwatch sw;
+    // std::vector<int> box{58946, 117847, 235657, 471247, 942452};
     for(int i=0; i < input_num_keys; i++) {
         int* ptr = map.update(keys[i]);
         *ptr = 1;
+        // for(auto b : box) {
+        // // if((i+1) % 1000000 == 0) {
+        //     if(b == i) {
+        //         std::cout << i+1 << " : search_all_key" << std::endl;
+        //         for(int j=0; j < i; j++) {
+        //             const int *ptr = map.find(keys[j]);
+        //             if(not (ptr != nullptr and *ptr == 1)) {
+        //                 std::cout << "search_failed : " << j << "," << keys[j] << std::endl;
+        //                 return;
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     auto ram_size = get_process_size() - begin_size;
@@ -364,7 +382,7 @@ void write_file(std::vector<uint64_t>& box) {
 
 // 作成したCP入れ替えを複数回試す
 template<class Map>
-void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
+void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys, uint64_t begin_size) {
     std::cout << "--- multi_CP_swap ---" << std::endl;
     // uint64_t input_num_keys = keys.size();
     // map.reset_cnt_hash();
@@ -405,9 +423,12 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         }
     }
 
+    auto ram_size = get_process_size() - begin_size;
+    std::cout << "before_search_ram_size : " << ram_size << std::endl;
+
     map.reset_cnt_hash();
-    // double search_time = AllDatasetSearchSpeed(map, test_keys);
-    double search_time = CalcSearchSpeed(map, keys, keys.size());
+    double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // double search_time = CalcSearchSpeed(map, keys, keys.size());
     map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
 }
@@ -415,20 +436,34 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
 template<class Map>
 void use_map_check(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
     std::cout << "--- use_map_check ---" << std::endl;
-    // map.dynamic_replacement();
+    map.dynamic_replacement();
 
-    map.reset_cnt_hash();
-    double search_time = AllDatasetSearchSpeed(map, test_keys);
-    // double search_time = CalcSearchSpeed(map, keys, keys.size());
-    map.show_cnt_hash();
-    std::cout << "time_search : " << search_time << std::endl;
+    const auto input_num_keys = static_cast<int>(keys.size());
 
-    std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
-    std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
+    bool test_check = true;
+    for(int i=0; i < input_num_keys; i++) {
+        // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+        const int *ptr = map.find(keys[i]);
+        if(not (ptr != nullptr and *ptr == 1)) {
+            std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+            test_check = false;
+            // return;
+        }
+    }
+    std::cout << (test_check ? "ok." : "failed.") << std::endl;
+
+    // map.reset_cnt_hash();
+    // double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // // double search_time = CalcSearchSpeed(map, keys, keys.size());
+    // map.show_cnt_hash();
+    // std::cout << "time_search : " << search_time << std::endl;
+
+    // std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
+    // std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
 }
 
 template <class Map>
-void use_map_akr(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
+void use_map_akr(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys, uint64_t begin_size) {
     std::cout << "--- use_map_akr ---" << std::endl;
 
     Stopwatch sw;
@@ -436,11 +471,14 @@ void use_map_akr(Map& map, std::vector<std::string>& keys, std::vector<std::stri
     auto replacement_time = sw.get_milli_sec();
     std::cout << "replacement time : " << replacement_time / 1000.0 << std::endl;
 
-    map.reset_cnt_hash();
+    auto ram_size = get_process_size() - begin_size;
+    std::cout << "before_search_ram_size : " << ram_size << std::endl;
+
+    // map.reset_cnt_hash();
     // double search_time = AllDatasetSearchSpeed(map, test_keys);
-    double search_time = CalcSearchSpeed(map, keys, keys.size());
-    map.show_cnt_hash();
-    std::cout << "time_search : " << search_time << std::endl;
+    // // double search_time = CalcSearchSpeed(map, keys, keys.size());
+    // map.show_cnt_hash();
+    // std::cout << "time_search : " << search_time << std::endl;
 
     // std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
     // std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
@@ -471,7 +509,8 @@ int main(int argc, char* argv[]) {
     } else if(input_name == "check") {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        use_map_check(map, keys, test_keys);
+        // map.restore_and_compare(keys);
+        // use_map_check(map, keys, test_keys);
         // map.call_topo();
         // multi_CP_swap(map, keys, test_keys);
     } else if(input_name == "check_CPD") {
@@ -531,17 +570,20 @@ int main(int argc, char* argv[]) {
         map.show_cnt_hash();
         std::cout << "time_search : " << search_time << std::endl;
     } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
+        auto begin_size = get_process_size();
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        multi_CP_swap(map, keys, test_keys);
+        // multi_CP_swap(map, keys, test_keys, begin_size);
+        // map.restore_and_compare(keys);
     } else if(input_name == "akr") { // 全てのキーを復元して、CPD順にソートし、新しい辞書に追加
+        auto begin_size = get_process_size();
         poplar::plain_bonsai_map_akr<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        use_map_akr(map, keys, test_keys);
+        // use_map_akr(map, keys, test_keys, begin_size);
     } else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
-        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr" << std::endl;
+        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr" << std::endl;
     }
 
 
