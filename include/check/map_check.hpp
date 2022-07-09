@@ -14,6 +14,8 @@
 
 #include "CP_info.hpp"
 
+// static std::vector<std::string> CPD_keys;
+
 namespace poplar {
 
 // This class implements an updatable associative array whose keys are strings.
@@ -304,22 +306,22 @@ class map_check {
     void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string) {
     // void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string, char c) {
         // std::cout << "prefix_str : " << prefix_str << std::endl;
-        // if(node_id == 32246) {
-        //     std::cout << "^^^^^^^^^^^^" << std::endl;
-        //     std::cout << "particular_part" << std::endl;
-        //     std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
-        //     std::cout << "store_string : " << store_string << std::endl;
-        //     std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
-        //     std::cout << "^^^^^^^^^^^^" << std::endl;
-        // }
-        // if(node_id == 84361) {
-        //     std::cout << "~~~~~~~~~~~~~" << std::endl;
-        //     std::cout << "particular_part" << std::endl;
-        //     std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
-        //     std::cout << "store_string : " << store_string << std::endl;
-        //     std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
-        //     std::cout << "~~~~~~~~~~~~~" << std::endl;
-        // }
+        if(node_id == 117464) { // 32246
+            std::cout << "^^^^^^^^^^^^" << std::endl;
+            std::cout << "particular_part" << std::endl;
+            std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
+            std::cout << "store_string : " << store_string << std::endl;
+            std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
+            std::cout << "^^^^^^^^^^^^" << std::endl;
+        }
+        if(node_id == 176082) { // 84361
+            std::cout << "~~~~~~~~~~~~~" << std::endl;
+            std::cout << "particular_part" << std::endl;
+            std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
+            std::cout << "store_string : " << store_string << std::endl;
+            std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
+            std::cout << "~~~~~~~~~~~~~" << std::endl;
+        }
         std::string restore_key = "";
         if(common_prefix_length == 0) {
             restore_key = restore_insert_string(node_id);
@@ -329,6 +331,7 @@ class map_check {
             //     std::cout << "restore_key : " << restore_key << std::endl;
             // }
             store_string = restore_key;
+            // CPD_keys.emplace_back(restore_key);
             int* ptr = new_map.update(restore_key);
             *ptr = 1;
             return;
@@ -353,9 +356,19 @@ class map_check {
             //     std::cout << "node_string  : " << restore_node_string(node_id) << std::endl;
             //     std::cout << "c : " << c << std::endl;
             // }
+
+            if(restore_key.substr(0, 16) == "Cornu_Lunparkeri") {
+                std::cout << "node_id : " << node_id << std::endl;
+                std::cout << "parent  : " << parent << std::endl;
+                std::cout << "c       : " << c << std::endl;
+                std::cout << "match   : " << match << std::endl;
+                std::cout << restore_key << std::endl;
+            }
         }
         // std::string restore_key = restore_insert_string(node_id);
         if(restore_key.size() == 0) return;
+        // CPD_keys.emplace_back(restore_key);
+
         int* ptr = new_map.update(restore_key);
         *ptr = 1;
         // std::cout << "restore_key : " << restore_key << std::endl;
@@ -1339,6 +1352,7 @@ class map_check {
     value_type* dynamic_replacement(char_range& key) {
     // void dynamic_replacement() {
         // std::cout << "--- dynamic_replacement ---" << std::endl;
+        // CPD_keys.clear();
 
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
         // std::vector<uint64_t> blanch_num_except_zero;                    // 0分岐を除く累積和
@@ -1355,6 +1369,8 @@ class map_check {
         std::string store_string = "";
         require_centroid_path_order_and_insert_dictionary(new_map, children, hash_trie_.get_root(), cnt_leaf_per_node, 0, store_string);
         std::swap(*this, new_map); // 時間がかかるので、注意
+
+        // write_file(CPD_keys);
 
         return update(key);
     }
