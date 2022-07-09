@@ -213,12 +213,13 @@ class map_dr {
             *ptr = 1;
             return;
         } else {
-            // auto fs = label_store_.return_string_pointer(node_id);
-            // if(fs == nullptr) {
-            //     std::cout << "nullpltr : " << store_string.substr(0, common_prefix_length).size() << std::endl;
-            //     return;
-            // }
-            restore_key = store_string.substr(0, common_prefix_length) + restore_node_string(node_id);
+            // restore_key = store_string.substr(0, common_prefix_length) + restore_node_string(node_id);
+            // 遷移文字を取得し、文字列を復元する
+            auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+            auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
+
+            if(common_prefix_length == 1) restore_key = c + restore_node_string(node_id);
+            else restore_key = store_string.substr(0, common_prefix_length-1) + c + restore_node_string(node_id);
         }
         // std::string restore_key = restore_insert_string(node_id);
         if(restore_key.size() == 0) return;
@@ -293,6 +294,7 @@ class map_dr {
         variable.partial_num[hash_trie_.get_root()] += 1;
         for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
             if(hash_trie_.is_use_table(i)) {                                                    // テーブルが使用されているとき
+                if(label_store_.return_string_pointer(i) == nullptr) continue;                  // 対象としているノードがダミーノードの時
                 auto [p, label] = hash_trie_.get_parent_and_symb(i);                            // 親と遷移情報の取得
                 if(label == 255) continue;                                                      // ダミーノードをスキップ
                 auto [c, match] = std::pair{uint8_t(restore_codes_[label % 256]), label/256};   // 遷移文字と分岐位置を取得
