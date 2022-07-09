@@ -306,30 +306,10 @@ class map_check {
     void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string) {
     // void insert_new_dic_CPD(Map& new_map, uint64_t node_id, uint64_t common_prefix_length, std::string& store_string, char c) {
         // std::cout << "prefix_str : " << prefix_str << std::endl;
-        if(node_id == 117464) { // 32246
-            std::cout << "^^^^^^^^^^^^" << std::endl;
-            std::cout << "particular_part" << std::endl;
-            std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
-            std::cout << "store_string : " << store_string << std::endl;
-            std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
-            std::cout << "^^^^^^^^^^^^" << std::endl;
-        }
-        if(node_id == 176082) { // 84361
-            std::cout << "~~~~~~~~~~~~~" << std::endl;
-            std::cout << "particular_part" << std::endl;
-            std::cout << "common_prefix_length : " << common_prefix_length << std::endl;
-            std::cout << "store_string : " << store_string << std::endl;
-            std::cout << "restore_node_string : " << restore_node_string(node_id) << std::endl;
-            std::cout << "~~~~~~~~~~~~~" << std::endl;
-        }
         std::string restore_key = "";
         if(common_prefix_length == 0) {
             restore_key = restore_insert_string(node_id);
             if(restore_key.size() == 0) return;
-            // if(restore_key[0] == 'I') {
-            //     std::cout << "node_id : " << node_id << std::endl;
-            //     std::cout << "restore_key : " << restore_key << std::endl;
-            // }
             store_string = restore_key;
             // CPD_keys.emplace_back(restore_key);
             int* ptr = new_map.update(restore_key);
@@ -345,25 +325,6 @@ class map_check {
 
             if(common_prefix_length == 1) restore_key = c + restore_node_string(node_id);
             else restore_key = store_string.substr(0, common_prefix_length-1) + c + restore_node_string(node_id);
-
-            // if(restore_key[0] == 'I') {
-            //     std::cout << "node_id : " << node_id << std::endl;
-            //     std::cout << "restore_key : " << restore_key << std::endl;
-            // }
-            // if(node_id == 32246) {
-            //     std::cout << "store_string : " << store_string << std::endl;
-            //     std::cout << "restore_key  : " << restore_key << std::endl;
-            //     std::cout << "node_string  : " << restore_node_string(node_id) << std::endl;
-            //     std::cout << "c : " << c << std::endl;
-            // }
-
-            if(restore_key.substr(0, 16) == "Cornu_Lunparkeri") {
-                std::cout << "node_id : " << node_id << std::endl;
-                std::cout << "parent  : " << parent << std::endl;
-                std::cout << "c       : " << c << std::endl;
-                std::cout << "match   : " << match << std::endl;
-                std::cout << restore_key << std::endl;
-            }
         }
         // std::string restore_key = restore_insert_string(node_id);
         if(restore_key.size() == 0) return;
@@ -1112,6 +1073,7 @@ class map_check {
         variable.partial_num[hash_trie_.get_root()] += 1;
         for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
             if(hash_trie_.is_use_table(i)) {                                                    // テーブルが使用されているとき
+                if(label_store_.return_string_pointer(i) == nullptr) continue;                  // 対象としているノードがダミーノードの時
                 auto [p, label] = hash_trie_.get_parent_and_symb(i);                            // 親と遷移情報の取得
                 if(label == 255) continue;                                                      // ダミーノードをスキップ
                 auto [c, match] = std::pair{uint8_t(restore_codes_[label % 256]), label/256};   // 遷移文字と分岐位置を取得
@@ -1354,14 +1316,34 @@ class map_check {
         // std::cout << "--- dynamic_replacement ---" << std::endl;
         // CPD_keys.clear();
 
-        std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
+        std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合(match, node_id)
         // std::vector<uint64_t> blanch_num_except_zero;                    // 0分岐を除く累積和
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
-        // std::cout << "is_leaf : " << children[108491].size() << std::endl;
-        // std::cout << cnt_leaf_per_node[108491] << std::endl;
-        // std::cout << children[32246][0].first << " : " << children[32246][0].second << std::endl;
+        // if(hash_trie_.size() > 117464) {
+        //     std::cout << " --- 117464 ---" << std::endl;
+        //     std::cout << "leaf_num : " << children[117464].size() << std::endl;
+        //     std::cout << cnt_leaf_per_node[117464] << std::endl;
+        //     for(auto child : children[117464]) {
+        //         std::cout << child.first << " : " << child.second << std::endl;
+        //     }
+        //     std::cout << "node_key    : " << restore_insert_string(117464) << std::endl;
+        //     std::cout << "node_string : " << restore_node_string(117464) << std::endl;
+        //     // std::cout << children[32246][0].first << " : " << children[32246][0].second << std::endl;
+        // }
+        // if(hash_trie_.size() > 884474) {
+        //     std::cout << " --- 884474 ---" << std::endl;
+        //     std::cout << "leaf_num : " << children[884474].size() << std::endl;
+        //     std::cout << cnt_leaf_per_node[884474] << std::endl;
+        //     for(auto child : children[884474]) {
+        //         std::cout << child.first << " : " << child.second << std::endl;
+        //     }
+        //     std::cout << "node_key : " << restore_insert_string(884474) << std::endl;
+        //     std::cout << "node_string : " << restore_node_string(884474) << std::endl;
+        //     if(label_store_.return_string_pointer(884474) == nullptr) std::cout << "nullptr" << std::endl;
+        //     // std::cout << children[32246][0].first << " : " << children[32246][0].second << std::endl;
+        // }
 
         map_check new_map(hash_trie_.capa_bits()+1);
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;

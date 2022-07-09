@@ -152,7 +152,7 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
@@ -174,7 +174,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
     // std::string input_name = "../../../dataset/s17.txt"; // 大学で実験するとき
 
-    std::string input_name = "../../../dataset/enwiki_partial.txt";
+    // std::string input_name = "../../../dataset/enwiki_partial.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss2.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss3.txt";
 
@@ -318,23 +318,9 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     auto begin_size = get_process_size();
 
     Stopwatch sw;
-    std::vector<int> box{58946, 117847, 235658, 471249, 942458};
     for(int i=0; i < input_num_keys; i++) {
         int* ptr = map.update(keys[i]);
         *ptr = 1;
-        for(auto b : box) {
-        // if((i+1) % 1000000 == 0) {
-            if(b == i) {
-                std::cout << i+1 << " : search_all_key" << std::endl;
-                for(int j=0; j < i; j++) {
-                    const int *ptr = map.find(keys[j]);
-                    if(not (ptr != nullptr and *ptr == 1)) {
-                        std::cout << "search_failed : " << j << "," << keys[j] << std::endl;
-                        // return;
-                    }
-                }
-            }
-        }
     }
 
     auto ram_size = get_process_size() - begin_size;
