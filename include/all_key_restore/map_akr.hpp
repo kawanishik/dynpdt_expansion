@@ -304,7 +304,8 @@ class map_akr {
             while(node_id != first_node) {
                 auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
                 auto [c, match] = restore_symb_(symb); // symbから、遷移に失敗した箇所とlabelを取得する
-                restore_str = c + restore_str; // 遷移文字を追加
+                if(c == 0x00) restore_str.clear();  // 遷移文字が0x00(empty時に発生する処理)
+                else restore_str = c + restore_str; // 遷移文字を追加
 
                 uint64_t dummy_step = 0; // ダミーノード数をカウント
                 while(1) { // 親がダミーノードの場合の処理
