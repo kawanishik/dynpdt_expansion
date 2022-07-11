@@ -152,11 +152,11 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
-    // std::string input_name = "../../../dataset/in-2004.txt";
+    std::string input_name = "../../../dataset/in-2004.txt";
     // std::string input_name = "../../../dataset/uk-2005.txt";
     // std::string input_name = "../../../dataset/webbase-2001.txt";
 
@@ -177,6 +177,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/enwiki_partial.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss2.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss3.txt";
+    // std::string input_name = "../../../dataset/in-2004_partial.txt";
 
     std::ifstream ifs(input_name);
     if (!ifs) {
@@ -381,7 +382,9 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
         // map.call_topo();
         // map.call_restore_string_CP(); // 全ての文字列を復元してCP順に並べる
         // std::vector<uint64_t> box; // ノードの復元順を調べる際に使用
-        map.dynamic_replacement();
+        // map.dynamic_replacement();
+        map.dynamic_replacement_all_keys_restore();
+
         double time = sw.get_milli_sec();
         std::cout << "time : " << time / 1000.0 << std::endl;
 
@@ -422,7 +425,8 @@ void multi_CP_swap(Map& map, std::vector<std::string>& keys, std::vector<std::st
 template<class Map>
 void use_map_check(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys) {
     std::cout << "--- use_map_check ---" << std::endl;
-    map.dynamic_replacement();
+    // map.dynamic_replacement();
+    map.dynamic_replacement_all_keys_restore();
 
     const auto input_num_keys = static_cast<int>(keys.size());
 
@@ -433,10 +437,19 @@ void use_map_check(Map& map, std::vector<std::string>& keys, std::vector<std::st
         if(not (ptr != nullptr and *ptr == 1)) {
             std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
             test_check = false;
-            // return;
+            return;
         }
     }
     std::cout << (test_check ? "ok." : "failed.") << std::endl;
+
+    // std::cout << keys[3006] << std::endl;
+    // const int *ptr = map.find(keys[3006]);
+    // if(not (ptr != nullptr and *ptr == 1)) {
+    //     std::cout << "search_failed : " << "," << keys[3006] << std::endl;
+    // }
+    // std::cout << "ok" << std::endl;
+
+    // map.check_value(keys[3006]);
 
     // map.reset_cnt_hash();
     // double search_time = AllDatasetSearchSpeed(map, test_keys);
@@ -495,8 +508,8 @@ int main(int argc, char* argv[]) {
     } else if(input_name == "check") {
         poplar::plain_bonsai_map_check<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        // map.restore_and_compare(keys);
         // use_map_check(map, keys, test_keys);
+        // map.restore_and_compare(keys);
         // map.call_topo();
         // multi_CP_swap(map, keys, test_keys);
     } else if(input_name == "check_CPD") {
