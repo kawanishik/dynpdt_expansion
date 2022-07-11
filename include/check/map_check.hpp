@@ -116,7 +116,7 @@ class map_check {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
-        char_range tmp_key = key;
+        // char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -148,11 +148,11 @@ class map_check {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    // expand_if_needed_(node_id);
-                    if(is_need_expand()) {
-                        std::cout << "key : " << tmp_key.begin << std::endl;
-                        return dynamic_replacement(tmp_key);
-                    }
+                    expand_if_needed_(node_id);
+                    // if(is_need_expand()) {
+                    //     std::cout << "key : " << tmp_key.begin << std::endl;
+                    //     return dynamic_replacement(tmp_key);
+                    // }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -172,11 +172,11 @@ class map_check {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                // expand_if_needed_(node_id);
-                if(is_need_expand()) {
-                    std::cout << "key : " << tmp_key.begin << std::endl;
-                    return dynamic_replacement(tmp_key);
-                }
+                expand_if_needed_(node_id);
+                // if(is_need_expand()) {
+                //     std::cout << "key : " << tmp_key.begin << std::endl;
+                //     return dynamic_replacement(tmp_key);
+                // }
                 ++key.begin;
                 ++size_;
 
@@ -490,7 +490,8 @@ class map_check {
             auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
             auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
 
-            insert_string = c + insert_string;
+            if(c == 0x00) insert_string.clear();
+            else insert_string = c + insert_string;
 
             uint64_t dummy_step = 0; // ダミーノードの数を数える
             while(1) {
@@ -1311,9 +1312,9 @@ class map_check {
         return false;
     }
 
-    value_type* dynamic_replacement(char_range& key) {
-    // void dynamic_replacement() {
-        // std::cout << "--- dynamic_replacement ---" << std::endl;
+    // value_type* dynamic_replacement(char_range& key) {
+    void dynamic_replacement() {
+        std::cout << "--- dynamic_replacement ---" << std::endl;
         // CPD_keys.clear();
 
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合(match, node_id)
@@ -1345,7 +1346,7 @@ class map_check {
         //     // std::cout << children[32246][0].first << " : " << children[32246][0].second << std::endl;
         // }
 
-        map_check new_map(hash_trie_.capa_bits()+1);
+        map_check new_map(hash_trie_.capa_bits());
         // std::cout << "now_map_capa_size : " << capa_size() <<std::endl;
         // std::cout << "new_map_capa_size : " << new_map.capa_size() << std::endl;
         std::string store_string = "";
@@ -1354,12 +1355,56 @@ class map_check {
 
         // write_file(CPD_keys);
 
-        return update(key);
+        // return update(key);
+    }
+
+    void dynamic_replacement_all_keys_restore() {
+        std::vector<std::string> all_keys = all_key_restore_simple(); // 文字列の復元
+
+        map_check new_map(hash_trie_.capa_bits());
+        std::sort(all_keys.begin(), all_keys.end());
+        insert_by_centroid_path_order(new_map, all_keys.begin(), all_keys.end(), 0);
+        std::swap(*this, new_map);  // 辞書を入れ替える
+    }
+
+    // CPD順にソートし、新しい辞書に追加
+    template <class Map, class It>
+    void insert_by_centroid_path_order(Map& new_map, It begin, It end, uint64_t depth) {
+        assert(end-begin > 0);
+        if (end-begin == 1) {
+            int* ptr = new_map.update(*begin);
+            *ptr = 1;
+            return;
+        }
+        std::vector<std::tuple<It,It,char>> ranges;
+        auto from = begin;
+        auto to = begin;
+        if (from->length() == depth) {
+            ranges.emplace_back(from, ++to, '\0');
+            from = to;
+        }
+        while (from != end) {
+            assert(from->length() > depth);
+            char c = (*from)[depth];
+            while (to != end and (*to)[depth] == c) {
+                ++to;
+            }
+            ranges.emplace_back(from, to, c);
+            from = to;
+        }
+        std::sort(ranges.begin(), ranges.end(), [](auto l, auto r) {
+            auto [fl,tl,cl] = l;
+            auto [fr,tr,cr] = r;
+            return tl-fl > tr-fr;
+        });
+        for (auto [f,t,c] : ranges) {
+            insert_by_centroid_path_order(new_map, f, t, depth+1);
+        }
     }
 
     void write_file(std::vector<std::string>& tmp_keys) {
         std::ofstream of;
-        std::string filename = "../../../dataset/enwiki_restore.txt";
+        std::string filename = "../../../dataset/in-2004_restore.txt";
         of.open(filename, std::ios::out);
         for(auto b : tmp_keys) {
             of << b << std::endl;
@@ -1391,6 +1436,8 @@ class map_check {
             // std::cout << "cnt : " << cnt << std::endl;
             return;
         }
+
+        return;
 
         std::sort(keys.begin(), keys.end());
         std::sort(restore_keys.begin(), restore_keys.end());
@@ -1424,6 +1471,26 @@ class map_check {
         std::cout << "ok." << std::endl;
     }
 
+    void check_value(std::string key) {
+        // uint64_t node_id = 50250; // 50250
+        // auto fs = label_store_.return_string_pointer(node_id);
+        // for(int i=0;; i++) {
+        //     char c = fs[i];
+        //     if(c == 0x00) {
+        //         std::cout << i << std::endl;
+        //         break;
+        //     }
+        //     std::cout << int(c) << " : " << c << std::endl;
+        // }
+
+        std::cout << key << std::endl;
+        const int *ptr = find(key);
+        if(not (ptr != nullptr and *ptr == 1)) {
+            std::cout << "search_failed : " << "," << key << std::endl;
+        }
+        std::cout << "ok" << std::endl;
+    }
+
     // 途中の文字列を保存しないバージョン
     std::vector<std::string> all_key_restore_simple() {
         std::vector<std::string> restore_keys;  // 復元したキーを全て保存
@@ -1453,7 +1520,8 @@ class map_check {
             while(node_id != first_node) {
                 auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
                 auto [c, match] = restore_symb_(symb); // symbから、遷移に失敗した箇所とlabelを取得する
-                restore_str = c + restore_str; // 遷移文字を追加
+                if(c == 0x00) restore_str.clear();
+                else restore_str = c + restore_str; // 遷移文字を追加
 
                 uint64_t dummy_step = 0; // ダミーノード数をカウント
                 while(1) { // 親がダミーノードの場合の処理
