@@ -881,7 +881,8 @@ class map_dr {
             auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
             auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
 
-            insert_string = c + insert_string;
+            if(c == 0x00) insert_string.clear();
+            else insert_string = c + insert_string;
 
             uint64_t dummy_step = 0; // ダミーノードの数を数える
             while(1) {
