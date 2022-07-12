@@ -48,6 +48,10 @@
 #include "all_key_restore/plain_bonsai_trie_akr.hpp"
 #include "all_key_restore/plain_bonsai_nlm_akr.hpp"
 
+#include "table/map_table.hpp"
+#include "table/plain_bonsai_trie_table.hpp"
+#include "table/plain_bonsai_nlm_table.hpp"
+
 namespace poplar {
 
 template <typename Value>
@@ -79,6 +83,10 @@ using plain_bonsai_map_dr = map_dr<plain_bonsai_trie_dr<>, plain_bonsai_nlm_dr<V
 // 全てのキーを復元して、新しい辞書に登録する際に使用
 template <typename Value>
 using plain_bonsai_map_akr = map_akr<plain_bonsai_trie_akr<>, plain_bonsai_nlm_akr<Value>>;
+
+// テーブルを使用
+template <typename Value>
+using plain_bonsai_map_table = map_table<plain_bonsai_trie_table<>, plain_bonsai_nlm_table<Value>>;
 
 }  // namespace poplar
 

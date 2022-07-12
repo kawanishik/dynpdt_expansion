@@ -152,11 +152,11 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
-    std::string input_name = "../../../dataset/in-2004.txt";
+    // std::string input_name = "../../../dataset/in-2004.txt";
     // std::string input_name = "../../../dataset/uk-2005.txt";
     // std::string input_name = "../../../dataset/webbase-2001.txt";
 
@@ -569,20 +569,24 @@ int main(int argc, char* argv[]) {
         map.show_cnt_hash();
         std::cout << "time_search : " << search_time << std::endl;
     } else if(input_name == "dr") { // 動的に辞書を入れ替える際に使用
-        auto begin_size = get_process_size();
+        // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_dr<int> map;
         bench(map, keys, test_keys, random_test_keys);
         // multi_CP_swap(map, keys, test_keys, begin_size);
         // map.restore_and_compare(keys);
     } else if(input_name == "akr") { // 全てのキーを復元して、CPD順にソートし、新しい辞書に追加
-        auto begin_size = get_process_size();
+        // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_akr<int> map;
         bench(map, keys, test_keys, random_test_keys);
         // use_map_akr(map, keys, test_keys, begin_size);
-    } else {
+    } else if(input_name == "table") {
+        // auto begin_size = get_process_size();
+        poplar::plain_bonsai_map_table<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+    }else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
-        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr" << std::endl;
+        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr, table" << std::endl;
     }
 
 
