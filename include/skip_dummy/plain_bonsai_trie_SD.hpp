@@ -311,7 +311,7 @@ class plain_bonsai_trie_SD {
     }
 
     void skip_dummy_set_skip(uint64_t pos, const std::vector<uint64_t>& skip) {
-        for(int i=0; i < skip.size(); i++) skip_dummy[pos].skip[i] = skip[i];
+        for(int i=0; i < int(skip.size()); i++) skip_dummy[pos].skip[i] = skip[i];
     }
 
     void skip_dummy_sort() {
