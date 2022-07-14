@@ -52,6 +52,10 @@
 #include "table/plain_bonsai_trie_table.hpp"
 #include "table/plain_bonsai_nlm_table.hpp"
 
+#include "skip_dummy/map_SD.hpp"
+#include "skip_dummy/plain_bonsai_trie_SD.hpp"
+#include "skip_dummy/plain_bonsai_nlm_SD.hpp"
+
 namespace poplar {
 
 template <typename Value>
@@ -87,6 +91,10 @@ using plain_bonsai_map_akr = map_akr<plain_bonsai_trie_akr<>, plain_bonsai_nlm_a
 // テーブルを使用
 template <typename Value>
 using plain_bonsai_map_table = map_table<plain_bonsai_trie_table<>, plain_bonsai_nlm_table<Value>>;
+
+// 検索する際のダミーノードをスキップ
+template <typename Value>
+using plain_bonsai_map_SD = map_SD<plain_bonsai_trie_SD<>, plain_bonsai_nlm_SD<Value>>;
 
 }  // namespace poplar
 

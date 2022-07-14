@@ -330,31 +330,31 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
 
     std::cout << "----------------------" << std::endl;
     // 追加されたキーが全て辞書に存在するのかをチェック
-    bool test_check = true;
-    map.reset_cnt_hash();
-    for(int i=0; i < input_num_keys; i++) {
-        // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
-        const int *ptr = map.find(keys[i]);
-        if(not (ptr != nullptr and *ptr == 1)) {
-            std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
-            test_check = false;
-            // return;
-        }
-    }
-    std::cout << (test_check ? "ok." : "failed.") << std::endl;
+    // bool test_check = true;
+    // map.reset_cnt_hash();
+    // for(int i=0; i < input_num_keys; i++) {
+    //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+    //     const int *ptr = map.find(keys[i]);
+    //     if(not (ptr != nullptr and *ptr == 1)) {
+    //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+    //         test_check = false;
+    //         // return;
+    //     }
+    // }
+    // std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
     // std::cout << "Build time(m): " << time / 1000.0 << std::endl;
     std::cout << "Build time(m): " << time << std::endl;
     std::cout << "ram_size : " << ram_size << std::endl;
     std::cout << "capa_size : " << map.capa_size() << std::endl;
 
-    // map.reset_cnt_hash();
+    map.reset_cnt_hash();
     // auto search_time = AllDatasetSearchSpeed(map, test_keys);
-    // auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
+    auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
     // map.show_cnt_hash();
-    // std::cout << "time_search : " << search_time << std::endl;
+    std::cout << "time_search : " << search_time << std::endl;
 }
 
 void write_file(std::vector<uint64_t>& box) {
@@ -583,10 +583,14 @@ int main(int argc, char* argv[]) {
         // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_table<int> map;
         bench(map, keys, test_keys, random_test_keys);
-    }else {
+        map.show_cnt_dummy();
+    } else if(input_name == "SD") {
+        poplar::plain_bonsai_map_SD<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+    } else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
-        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr, table" << std::endl;
+        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr, table, SD" << std::endl;
     }
 
 
