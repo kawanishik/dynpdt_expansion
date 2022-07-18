@@ -353,7 +353,7 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
-    // map.show_cnt_hash();
+    map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
 }
 
@@ -583,7 +583,7 @@ int main(int argc, char* argv[]) {
         // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_table<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        map.show_cnt_dummy();
+        // map.check_not_use_hash();
     } else if(input_name == "SD") {
         poplar::plain_bonsai_map_SD<int> map;
         bench(map, keys, test_keys, random_test_keys);
