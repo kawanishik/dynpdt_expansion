@@ -76,6 +76,11 @@ class plain_bonsai_nlm_table {
         ptrs_ = std::move(new_ptrs);
     }
 
+    // 特定のノードのポインタを返す
+    uint8_t* return_string_pointer(uint64_t pos) const {
+        return ptrs_[pos].get();
+    }
+
     uint64_t size() const {
         return size_;
     }

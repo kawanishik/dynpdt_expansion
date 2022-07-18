@@ -7,6 +7,8 @@
 #include "../poplar/bit_tools.hpp"
 #include "../poplar/exception.hpp"
 
+static int cnt_expand = 0;
+
 namespace poplar {
 
 // This class implements an updatable associative array whose keys are strings.
@@ -71,7 +73,9 @@ class map_table {
             key.begin += match;
 
             while (lambda_ <= match) {
-                node_id = hash_trie_.find_child(node_id, step_symb);
+                if(hash_trie_.is_node_use_table(node_id)) node_id = hash_trie_.transiton_not_use_hash_table(node_id, step_symb);
+                else node_id = hash_trie_.find_child(node_id, step_symb);
+                
                 if (node_id == nil_id) {
                     return nullptr;
                 }
@@ -83,8 +87,9 @@ class map_table {
                 // Detecting an useless character
                 return nullptr;
             }
+            if(hash_trie_.is_node_use_table(node_id)) node_id = hash_trie_.transiton_not_use_hash_table(node_id, make_symb_(*key.begin, match));
+            else node_id = hash_trie_.find_child(node_id, make_symb_(*key.begin, match));
 
-            node_id = hash_trie_.find_child(node_id, make_symb_(*key.begin, match));
             if (node_id == nil_id) {
                 return nullptr;
             }
@@ -153,7 +158,7 @@ class map_table {
                 codes_[*key.begin] = static_cast<uint8_t>(num_codes_++);
                 POPLAR_THROW_IF(UINT8_MAX == num_codes_, "");
             }
-
+            
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
                 expand_if_needed_(node_id);
                 ++key.begin;
@@ -175,6 +180,49 @@ class map_table {
 
         auto vptr = label_store_.compare(node_id, key).first;
         return vptr ? const_cast<value_type*>(vptr) : nullptr;
+    }
+
+    // void write_file(std::vector<std::string>& tmp_keys) {
+    void write_file(std::map<uint64_t, uint64_t>& mp) {
+        std::ofstream of;
+        // std::string filename = "../../../dataset/in-2004_restore.txt";
+        // of.open(filename, std::ios::out);
+        // for(auto b : tmp_keys) {
+        //     of << b << std::endl;
+        // }
+
+        std::string filename = "../../../memo/";
+        filename += std::to_string(cnt_expand);
+        filename += ".txt";
+        std::cout << filename << std::endl;
+
+        of.open(filename, std::ios::out);
+        for(auto m : mp) {
+            of << m.first << ":" << m.second << std::endl;
+        }
+
+        of.close();
+    }
+
+    // それぞれのノードに対して、子ノードの数をカウントする
+    // 葉ノードは子ノードが存在しないので、個数は0となる
+    // 
+    void compute_number_of_children_per_node(std::vector<uint64_t>& cnt_number_of_children_per_node) {
+        uint64_t table_size = hash_trie_.capa_size();
+        cnt_number_of_children_per_node.resize(table_size, 0);
+        // カウントする際には、ダミーノードもひとつのノードとしてカウントする
+        for(uint64_t i=hash_trie_.get_root()+1; i < table_size; i++) {
+            if(hash_trie_.is_use_table(i)) {
+                // if(label_store_.return_string_pointer(i) == nullptr) continue;
+                auto [p, label] = hash_trie_.get_parent_and_symb(i);
+                // if(label == 255) continue;  // ダミーノード
+                // while(label_store_.return_string_pointer(p) == nullptr) {
+                //     auto [tmp_parent, tmp_label] = hash_trie_.get_parent_and_symb(p);
+                //     p = tmp_parent;
+                // }
+                cnt_number_of_children_per_node[p] += 1;
+            }
+        }
     }
 
     // Gets the number of registered keys.
@@ -249,6 +297,10 @@ class map_table {
         // std::cout << "ave_hash : " << (long double)(sum) / (long double)(118142155) << std::endl; // webbase-2001
     }
 
+    void check_not_use_hash() {
+        hash_trie_.check_not_use_hash();
+    }
+
     map_table(const map_table&) = delete;
     map_table& operator=(const map_table&) = delete;
 
@@ -281,7 +333,38 @@ class map_table {
             if (!hash_trie_.needs_to_expand()) {
                 return;
             }
-            auto node_map = hash_trie_.expand();
+
+            // 子ノードの数を計算する
+            cnt_expand++;
+            std::vector<uint64_t> cnt_number_of_children_per_node;
+            compute_number_of_children_per_node(cnt_number_of_children_per_node);
+            std::map<uint64_t, uint64_t> number_of_children_per_node_map;
+            uint64_t cnt = 0;   // 子を持っているノード数の合計
+            for(uint64_t i=0; i < cnt_number_of_children_per_node.size(); i++) {
+                if(cnt_number_of_children_per_node[i] == 0) continue;
+                number_of_children_per_node_map[cnt_number_of_children_per_node[i]] += 1;
+                cnt++;
+            }
+
+            // 子の数の最低ラインを数える
+            uint64_t limit = cnt / 1000;
+            uint64_t min_number_of_children = nil_id;
+            cnt = 0;
+            std::map<uint64_t, uint64_t>::reverse_iterator it = number_of_children_per_node_map.rbegin();
+            for(; it != number_of_children_per_node_map.rend(); it++) {
+                cnt += it->second;
+                if(cnt > limit) break;
+                min_number_of_children = it->first;
+            }
+
+            // write_file(mp);
+            // std::cout << "min_number_of_children : " << min_number_of_children << std::endl;
+            // for(int i=0; i < cnt_number_of_children_per_node.size(); i++) {
+            //     if(cnt_number_of_children_per_node[i] != 0) std::cout << i << " : " << cnt_number_of_children_per_node[i] << std::endl;
+            // }
+
+            // 通常のハッシュテーブルの拡張
+            auto node_map = hash_trie_.expand(cnt_number_of_children_per_node, min_number_of_children, lambda_);
             node_id = node_map[node_id];
             label_store_.expand(node_map);
         }

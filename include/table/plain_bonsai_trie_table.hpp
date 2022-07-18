@@ -13,9 +13,14 @@ class plain_bonsai_trie_table {
   private:
     static_assert(0 < MaxFactor and MaxFactor < 100);
 
+    struct table_info {
+        uint64_t node_id;
+        std::vector<uint64_t> table;
+    };
+
   public:
     static constexpr uint64_t nil_id = UINT64_MAX;
-    static constexpr uint32_t min_capa_bits = 16;
+    static constexpr uint32_t min_capa_bits = 16; // 5
 
     static constexpr auto trie_type_id = trie_type_ids::BONSAI_TRIE;
 
@@ -27,6 +32,7 @@ class plain_bonsai_trie_table {
         symb_size_ = size_p2{symb_bits};
         max_size_ = static_cast<uint64_t>(capa_size_.size() * MaxFactor / 100.0);
         table_ = compact_vector{capa_size_.size(), capa_size_.bits() + symb_size_.bits()};
+        node_use_table.resize(capa_size_.size(), false);
     }
 
     ~plain_bonsai_trie_table() = default;
@@ -102,6 +108,8 @@ class plain_bonsai_trie_table {
                 table_.set(i, key);
 
                 ++size_;
+
+                if(is_node_use_table(node_id)) set_not_use_hash_table(node_id, symb, i, 0);
                 node_id = i;
 
                 return true;
@@ -158,7 +166,7 @@ class plain_bonsai_trie_table {
         return max_size() <= size();
     }
 
-    node_map expand() {
+    node_map expand(const std::vector<uint64_t>& cnt_number_of_children_per_node, uint64_t min_number_of_children, uint64_t lambda) {
         plain_bonsai_trie_table new_ht{capa_bits() + 1, symb_size_.bits()};
         new_ht.add_root();
 
@@ -170,6 +178,7 @@ class plain_bonsai_trie_table {
         done_flags.set(get_root());
 
         table_.set(get_root(), new_ht.get_root());
+        // if(cnt_number_of_children_per_node[get_root()] >= min_number_of_children) new_ht.set_is_use_table_elements(get_root());
 
         std::vector<std::pair<uint64_t, uint64_t>> path;
         path.reserve(256);
@@ -193,10 +202,19 @@ class plain_bonsai_trie_table {
 
             uint64_t new_node_id = table_[node_id];
 
+            // before_parent : 元の配列上の親番号
+            // after_parent  : new_ht上での親番号
+            uint64_t before_parent = node_id;
             for (auto rit = std::rbegin(path); rit != std::rend(path); ++rit) {
+                uint64_t after_parent = new_node_id;
                 new_ht.add_child(new_node_id, rit->second);
                 table_.set(rit->first, new_node_id);
+                if(cnt_number_of_children_per_node[before_parent] >= min_number_of_children) {      // 対象とするノードの子ノードの数が条件を満たしているとき
+                    new_ht.set_node_use_table(after_parent);                                 // 
+                    new_ht.set_not_use_hash_table(after_parent, rit->second, new_node_id, lambda);  // 
+                }
                 done_flags.set(rit->first);
+                before_parent = rit->first;
             }
         }
 
@@ -204,6 +222,61 @@ class plain_bonsai_trie_table {
         std::swap(*this, new_ht);
 
         return node_map;
+    }
+
+    // not_use_hash_table内を2分探索するための関数
+    std::pair<bool, uint64_t> binary_search_not_use_hash_table(uint64_t node_id) const {
+        if(not_use_hash_table.size() == 0) return {false, 0};
+        uint64_t left=0, right=not_use_hash_table.size()-1, mid;
+        while(left <= right) {
+            mid = (left + right) / 2;
+            if(not_use_hash_table[mid].node_id == node_id) return {true, mid};
+            else if(not_use_hash_table[mid].node_id < node_id) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return {false, left};
+    }
+
+    // not_use_hash_tableに対し、値を更新する
+    void set_not_use_hash_table(uint64_t node_id, uint64_t label, uint64_t next_node_id, uint64_t lambda) {
+                                // 遷移前の番号,   遷移文字,        遷移後の番号,          matchの最大値
+        // 手順
+        // node_idでnot_use_hash_tableのnode_idを2分探索
+        // 無ければ、insertし、サイズを拡張する(256*lambda_)
+        // not_use_hash_table[pos].table[label] = next_node_idとし、完了
+        auto [flag_hit, pos] = binary_search_not_use_hash_table(node_id);
+        if(!flag_hit) { // 対象とする部分が存在しないとき
+            not_use_hash_table.insert(not_use_hash_table.begin()+pos, table_info{node_id});
+            not_use_hash_table[pos].table.resize(256*lambda, nil_id);
+        }
+        not_use_hash_table[pos].table[label] = next_node_id;
+    }
+
+    // is_use_table_elementsの値をtrueにする
+    // node_id(ノード)がテーブルを必要とした際にtrueにする
+    void set_node_use_table(uint64_t node_id) {
+        node_use_table[node_id] = true;
+    }
+
+    // 使用しているのか(true : 使用, false : 未使用)
+    bool is_node_use_table(uint64_t node_id) const {
+        return node_use_table[node_id];
+    }
+
+    // テーブル内の特定の要素が使用されているのか
+    bool is_use_table(uint64_t i) {
+        if(table_[i] == 0) return false;
+        return true;
+    }
+
+    // not_use_hash_tableを使用して、ノード遷移する際に使用する関数
+    uint64_t transiton_not_use_hash_table(uint64_t node_id, uint64_t label) const {
+        auto [flag_hit, pos] = binary_search_not_use_hash_table(node_id);
+        if(!flag_hit) return nil_id; // nil_idを返値としないのは、使用していない部分の値が0だから
+        return not_use_hash_table[pos].table[label];
     }
 
     void reset_cnt_compare() {
@@ -227,6 +300,26 @@ class plain_bonsai_trie_table {
             std::cout << p.second << std::endl;
         }
         std::cout << "all : " << all << std::endl;
+    }
+
+    // テーブルの値を確認する
+    void check_not_use_hash() {
+        std::cout << "--- check_not_use_hash ---" << std::endl;
+        int cnt = 0;
+        int size = int(node_use_table.size());
+        for(int i=0; i < size; i++) {
+            if(node_use_table[i]) cnt++;
+        }
+        std::cout << "cnt : " << cnt << std::endl;
+        // for(int i=0; i < not_use_hash_table.size(); i++) {
+        //     std::cout << "node_id : " << not_use_hash_table[i].node_id << std::endl;
+        //     std::cout << "table_size : " << not_use_hash_table[i].table.size() << std::endl;
+        //     cnt = 0;
+        //     for(int j=0; j < int(not_use_hash_table[i].table.size()); j++) {
+        //         if(not_use_hash_table[i].table[j] != 0) cnt++;
+        //     }
+        //     std::cout << "use_table_num : " << cnt << std::endl;
+        // }
     }
 
     // # of registerd nodes
@@ -283,6 +376,8 @@ class plain_bonsai_trie_table {
     uint64_t max_size_ = 0;  // MaxFactor% of the capacity
     size_p2 capa_size_;
     size_p2 symb_size_;
+    std::vector<bool> node_use_table;    // テーブルに吐き出しているのか
+    std::vector<table_info> not_use_hash_table; // ハッシュテーブルを使用せずにノード遷移するための配列
 #ifdef POPLAR_EXTRA_STATS
     uint64_t num_resize_ = 0;
 #endif
