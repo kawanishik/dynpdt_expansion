@@ -6,6 +6,8 @@
 #include "../poplar/compact_vector.hpp"
 #include "../poplar/hash.hpp"
 
+#include <unordered_map>
+
 namespace poplar {
 
 template <uint32_t MaxFactor = 90, typename Hasher = hash::vigna_hasher>
@@ -20,7 +22,7 @@ class plain_bonsai_trie_SD {
 
   public:
     static constexpr uint64_t nil_id = UINT64_MAX;
-    static constexpr uint32_t min_capa_bits = 16;
+    static constexpr uint32_t min_capa_bits = 16; // 16
 
     static constexpr auto trie_type_id = trie_type_ids::BONSAI_TRIE;
 
@@ -141,28 +143,53 @@ class plain_bonsai_trie_SD {
     // 必要じゃない場合は更新して終了する
     void add_new_skip_dummy(uint64_t pre_node_id, uint64_t node_id, uint64_t index) {
         if(skip_dummy.size() == 0) {    // 初期の動作
+            // std::cout << "pre_node_id : " << pre_node_id << std::endl;
             skip_dummy.resize(1);
             skip_dummy[0].node_id = pre_node_id;
             skip_dummy[0].skip.resize(index+1);
             skip_dummy[0].skip[index] = node_id;
+            node_to_skip_dummy[pre_node_id] = 1;
             return;
         }
         // pre_node_idで2分探索
-        auto [flag_hit, pos] = binary_search_skip_dummy(pre_node_id);
-        if(flag_hit) { // 該当するnode_idが見つかったので、indexが存在するのかの確認
-            if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1);
-            skip_dummy[pos].skip[index] = node_id;
-        } else { // 該当するnode_idが存在しないということなので、insertが必要
-            skip_dummy.insert(skip_dummy.begin()+pos, skip_dummy_info{pre_node_id});
-            skip_dummy[pos].skip.resize(index+1);
+        // auto [flag_hit, pos] = binary_search_skip_dummy(pre_node_id);
+        // if(flag_hit) { // 該当するnode_idが見つかったので、indexが存在するのかの確認
+        //     if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1);
+        //     skip_dummy[pos].skip[index] = node_id;
+        // } else { // 該当するnode_idが存在しないということなので、insertが必要
+        //     skip_dummy.insert(skip_dummy.begin()+pos, skip_dummy_info{pre_node_id});
+        //     skip_dummy[pos].skip.resize(index+1);
+        //     skip_dummy[pos].skip[index] = node_id;
+        // }
+
+        // unordered_mapを使用する場合
+        int pos = node_to_skip_dummy[pre_node_id];
+        if(pos == 0) { // 拡張が必要
+            uint64_t size = skip_dummy.size();
+            skip_dummy.resize(size+1);
+            skip_dummy[size].skip.resize(index+1, nil_id);
+            skip_dummy[size].skip[index] = node_id;
+            skip_dummy[size].node_id = pre_node_id;
+            node_to_skip_dummy[pre_node_id] = size+1;
+            // std::cout << "pre_node_id2 : " << pre_node_id << std::endl;
+        } else {
+            pos--;
+            if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1, nil_id);
             skip_dummy[pos].skip[index] = node_id;
         }
     }
 
     // findする際に、スキップするdummyを見つける
     uint64_t find_skip_dummy(uint64_t node_id, uint64_t index) const {
-        auto [flag_hit, pos] = binary_search_skip_dummy(node_id);
-        if(!flag_hit) return nil_id;    // 対象とするノードが見つからないとき
+        // 2分探索を使用するとき
+        // auto [flag_hit, pos] = binary_search_skip_dummy(node_id);
+        // if(!flag_hit) return nil_id;    // 対象とするノードが見つからないとき
+
+        // unordered_mapを使用するとき
+        // int pos = node_to_skip_dummy[node_id];
+        int pos = node_to_skip_dummy.at(node_id);
+        if(pos == 0) return nil_id;
+        pos--;
 
         if(index >= skip_dummy[pos].skip.size()) return nil_id;
         return skip_dummy[pos].skip[index];
@@ -255,18 +282,33 @@ class plain_bonsai_trie_SD {
         }
 
         // ここでnew_htのskip_dummyに元の情報からtable_を使用して更新する
+        // 2分探索を使用する場合
+        // new_ht.skip_dummy_resize(skip_dummy.size());
+        // for(int i=0; i < int(skip_dummy.size()); i++) {
+        //     new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);
+        //     new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());
+        //     std::vector<uint64_t> skip;
+        //     for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
+        //         skip.emplace_back(table_[skip_dummy[i].skip[j]]);
+        //     }
+        //     new_ht.skip_dummy_set_skip(i, skip);
+        // }
+
+        // new_ht.skip_dummy_sort();
+
+        // unordered_mapを使用する場合
         new_ht.skip_dummy_resize(skip_dummy.size());
         for(int i=0; i < int(skip_dummy.size()); i++) {
-            new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);
-            new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());
+            new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);    // skip_dummy[].node_idの更新
+            new_ht.set_node_to_skip_dummy(table_[skip_dummy[i].node_id], i+1);  // node_to_skip_dummyの更新
+            new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());        // skip_dummy[].skipのサイズ変更
             std::vector<uint64_t> skip;
             for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
-                skip.emplace_back(table_[skip_dummy[i].skip[j]]);
+                if(skip_dummy[i].skip[j] == nil_id) skip.emplace_back(nil_id);
+                else skip.emplace_back(table_[skip_dummy[i].skip[j]]);
             }
             new_ht.skip_dummy_set_skip(i, skip);
         }
-
-        new_ht.skip_dummy_sort();
 
         node_map node_map{std::move(table_), std::move(done_flags)};
         std::swap(*this, new_ht);
@@ -318,6 +360,10 @@ class plain_bonsai_trie_SD {
         std::sort(skip_dummy.begin(), skip_dummy.end(), [] (auto l, auto r) {
             return l.node_id < r.node_id;
         });
+    }
+
+    void set_node_to_skip_dummy(uint64_t node_id, int pos) {
+        node_to_skip_dummy[node_id] = pos;
     }
 
     // # of registerd nodes
@@ -375,6 +421,7 @@ class plain_bonsai_trie_SD {
     size_p2 capa_size_;
     size_p2 symb_size_;
     std::vector<skip_dummy_info> skip_dummy;
+    std::unordered_map<uint64_t, int> node_to_skip_dummy;
 #ifdef POPLAR_EXTRA_STATS
     uint64_t num_resize_ = 0;
 #endif
