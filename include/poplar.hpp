@@ -56,6 +56,10 @@
 #include "skip_dummy/plain_bonsai_trie_SD.hpp"
 #include "skip_dummy/plain_bonsai_nlm_SD.hpp"
 
+#include "subtree_node_replacement/map_SNR.hpp"
+#include "subtree_node_replacement/plain_bonsai_trie_SNR.hpp"
+#include "subtree_node_replacement/plain_bonsai_nlm_SNR.hpp"
+
 namespace poplar {
 
 template <typename Value>
@@ -95,6 +99,10 @@ using plain_bonsai_map_table = map_table<plain_bonsai_trie_table<>, plain_bonsai
 // 検索する際のダミーノードをスキップ
 template <typename Value>
 using plain_bonsai_map_SD = map_SD<plain_bonsai_trie_SD<>, plain_bonsai_nlm_SD<Value>>;
+
+// ノード入れ替えを部分木に対し、実行する
+template <typename Value>
+using plain_bonsai_map_SNR = map_SNR<plain_bonsai_trie_SNR<>, plain_bonsai_nlm_SNR<Value>>;
 
 }  // namespace poplar
 

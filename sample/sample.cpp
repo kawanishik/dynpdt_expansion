@@ -152,11 +152,11 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
-    // std::string input_name = "../../../dataset/in-2004.txt";
+    std::string input_name = "../../../dataset/in-2004.txt";
     // std::string input_name = "../../../dataset/uk-2005.txt";
     // std::string input_name = "../../../dataset/webbase-2001.txt";
 
@@ -583,14 +583,18 @@ int main(int argc, char* argv[]) {
         // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_table<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        // map.check_not_use_hash();
+        map.check_not_use_hash();
     } else if(input_name == "SD") {
         poplar::plain_bonsai_map_SD<int> map;
+        bench(map, keys, test_keys, random_test_keys);
+        // map.check_skip_dummy();
+    } else if(input_name == "SNR") {
+        poplar::plain_bonsai_map_SNR<int> map;
         bench(map, keys, test_keys, random_test_keys);
     } else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
-        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr, table, SD" << std::endl;
+        std::cout << "normal, initial_CPD, remake_CPD, check, check_CPD, dr, akr, table, SD, SNR" << std::endl;
     }
 
 
