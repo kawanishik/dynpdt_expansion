@@ -9,6 +9,8 @@
 #include <unordered_map>
 
 // static std::vector<int> skip_data(50, 0);
+// static uint64_t binary_search_all = 0;
+// static uint64_t binary_searcg_cnt = 0;
 
 namespace poplar {
 
@@ -129,7 +131,9 @@ class plain_bonsai_trie_SD {
         int left = 0;
         int right = skip_dummy.size()-1;
         int mid;
+        // binary_searcg_cnt += 1;
         while(left <= right) {
+            // binary_search_all++;
             mid = (left + right) / 2;
             if(skip_dummy[mid].node_id == node_id) {
                 return {true, mid};
@@ -420,6 +424,11 @@ class plain_bonsai_trie_SD {
         // skip_data[index]++;
     }
 
+    // void reset_() {
+    //     binary_search_all = 0;
+    //     binary_searcg_cnt = 0;
+    // }
+
     // ダミーノードをチェックするための関数
     void check_skip_dummy() {
         std::cout << " --- check_skip_dummy --- " << std::endl;
@@ -431,6 +440,7 @@ class plain_bonsai_trie_SD {
         // for(int i=0; i < 50; i++) std::cout << skip_data[i] << std::endl;
         // std::cout << "node_to_skip_dummys_size : " << node_to_skip_dummy.size() << std::endl;
         std::cout << "skip_dummy_size : " << skip_dummy.size() << std::endl;
+        // std::cout << "平均探索回数（2分探索）: " << (long double)(binary_search_all) / (long double)(binary_searcg_cnt) << std::endl;
     }
 
     // # of registerd nodes

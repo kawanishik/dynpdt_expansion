@@ -221,6 +221,7 @@ class map_SD {
         std::cout << "--- reset_cnt_hash ---" << std::endl;
         cnt_hash.clear();
         all_cnt = 0;
+        // hash_trie_.reset_();
     }
 
     void show_stats(std::ostream& os, int n = 0) const {
