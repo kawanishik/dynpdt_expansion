@@ -8,6 +8,8 @@
 
 #include <unordered_map>
 
+// static std::vector<int> skip_data(50, 0);
+
 namespace poplar {
 
 template <uint32_t MaxFactor = 90, typename Hasher = hash::vigna_hasher>
@@ -17,7 +19,8 @@ class plain_bonsai_trie_SD {
 
     struct skip_dummy_info {
         uint64_t node_id;
-        std::vector<uint64_t> skip;
+        // std::vector<uint64_t> skip;  // next_node_id
+        std::vector<std::pair<int, uint64_t>> skip; // {index, next_node_id}
     };
 
   public:
@@ -122,7 +125,7 @@ class plain_bonsai_trie_SD {
     }
 
     // skip_dummy内を2分探索するための関数
-    std::pair<bool, uint64_t> binary_search_skip_dummy(uint64_t node_id) const {
+    std::pair<bool, int> binary_search_skip_dummy(uint64_t node_id) const {
         int left = 0;
         int right = skip_dummy.size()-1;
         int mid;
@@ -139,6 +142,26 @@ class plain_bonsai_trie_SD {
         return {false, left};
     }
 
+    // skip_dummy[].skip内を2分探索するための関数
+    std::pair<bool, uint64_t> binary_search_skip(uint64_t pos, int index) const {
+        if(skip_dummy[pos].skip.size() == 0) return {false, 0};
+
+        int left = 0;
+        int right = skip_dummy[pos].skip.size()-1;
+        int mid;
+        while(left <= right) {
+            mid = (left + right) / 2;
+            if(skip_dummy[pos].skip[mid].first == index) {
+                return {true, mid};
+            } else if(skip_dummy[pos].skip[mid].first < index) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return {false, left};
+    }
+
     // スキップするダミーノードに対し、追加する必要がある場合は、配列を拡張し、追加する
     // 必要じゃない場合は更新して終了する
     void add_new_skip_dummy(uint64_t pre_node_id, uint64_t node_id, uint64_t index) {
@@ -146,13 +169,16 @@ class plain_bonsai_trie_SD {
             // std::cout << "pre_node_id : " << pre_node_id << std::endl;
             skip_dummy.resize(1);
             skip_dummy[0].node_id = pre_node_id;
-            skip_dummy[0].skip.resize(index+1);
-            skip_dummy[0].skip[index] = node_id;
-            node_to_skip_dummy[pre_node_id] = 1;
+            // skip_dummy[0].skip.resize(index+1);
+            // skip_dummy[0].skip[index] = node_id;
+            skip_dummy[0].skip.push_back({index, node_id});
+
+            // node_to_skip_dummy[pre_node_id] = 1;
+            // add_cnt(index);
             return;
         }
         // pre_node_idで2分探索
-        // auto [flag_hit, pos] = binary_search_skip_dummy(pre_node_id);
+        auto [flag_hit, pos] = binary_search_skip_dummy(pre_node_id);
         // if(flag_hit) { // 該当するnode_idが見つかったので、indexが存在するのかの確認
         //     if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1);
         //     skip_dummy[pos].skip[index] = node_id;
@@ -162,37 +188,57 @@ class plain_bonsai_trie_SD {
         //     skip_dummy[pos].skip[index] = node_id;
         // }
 
-        // unordered_mapを使用する場合
-        int pos = node_to_skip_dummy[pre_node_id];
-        if(pos == 0) { // 拡張が必要
-            uint64_t size = skip_dummy.size();
-            skip_dummy.resize(size+1);
-            skip_dummy[size].skip.resize(index+1, nil_id);
-            skip_dummy[size].skip[index] = node_id;
-            skip_dummy[size].node_id = pre_node_id;
-            node_to_skip_dummy[pre_node_id] = size+1;
-            // std::cout << "pre_node_id2 : " << pre_node_id << std::endl;
+        // skip_dummy[].skip内で2分探索を使用する場合
+        if(flag_hit) {
+            auto [flag_hit_skip, pos_skip] = binary_search_skip(pos, index);
+            if(!flag_hit_skip) {
+                skip_dummy[pos].skip.insert(skip_dummy[pos].skip.begin()+pos_skip, {index, node_id});
+            }
         } else {
-            pos--;
-            if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1, nil_id);
-            skip_dummy[pos].skip[index] = node_id;
+            skip_dummy.insert(skip_dummy.begin()+pos, skip_dummy_info{pre_node_id});
+            skip_dummy[pos].skip.emplace_back(index, node_id);
         }
+
+        // unordered_mapを使用する場合
+        // int pos = node_to_skip_dummy[pre_node_id];
+        // if(pos == 0) { // 拡張が必要
+        //     uint64_t size = skip_dummy.size();
+        //     skip_dummy.resize(size+1);
+        //     skip_dummy[size].skip.resize(index+1, nil_id);
+        //     skip_dummy[size].skip[index] = node_id;
+        //     skip_dummy[size].node_id = pre_node_id;
+        //     node_to_skip_dummy[pre_node_id] = size+1;
+        //     // std::cout << "pre_node_id2 : " << pre_node_id << std::endl;
+        //     // add_cnt(index);
+        // } else {
+        //     pos--;
+        //     if(index >= skip_dummy[pos].skip.size()) skip_dummy[pos].skip.resize(index+1, nil_id);
+        //     // if(skip_dummy[pos].skip[index] == nil_id) add_cnt(index);
+        //     skip_dummy[pos].skip[index] = node_id;
+        // }
     }
 
     // findする際に、スキップするdummyを見つける
     uint64_t find_skip_dummy(uint64_t node_id, uint64_t index) const {
         // 2分探索を使用するとき
-        // auto [flag_hit, pos] = binary_search_skip_dummy(node_id);
-        // if(!flag_hit) return nil_id;    // 対象とするノードが見つからないとき
+        auto [flag_hit, pos] = binary_search_skip_dummy(node_id);
+        if(!flag_hit) return nil_id;    // 対象とするノードが見つからないとき
 
         // unordered_mapを使用するとき
         // int pos = node_to_skip_dummy[node_id];
-        int pos = node_to_skip_dummy.at(node_id);
-        if(pos == 0) return nil_id;
-        pos--;
+        // int pos = node_to_skip_dummy.at(node_id);
+        // if(pos == 0) return nil_id;
+        // pos--;
 
-        if(index >= skip_dummy[pos].skip.size()) return nil_id;
-        return skip_dummy[pos].skip[index];
+        // 2分探索を使用する場合
+        // if(index >= skip_dummy[pos].skip.size()) return nil_id;
+        // // add_cnt(index);
+        // return skip_dummy[pos].skip[index];
+
+        // skip内で2分探索を使用する場合
+        auto [flag_hit_skip, pos_skip] = binary_search_skip(pos, index);
+        if(!flag_hit_skip) return nil_id;
+        return skip_dummy[pos].skip[pos_skip].second;
     }
 
     std::pair<uint64_t, uint64_t> get_parent_and_symb(uint64_t node_id) const {
@@ -283,32 +329,35 @@ class plain_bonsai_trie_SD {
 
         // ここでnew_htのskip_dummyに元の情報からtable_を使用して更新する
         // 2分探索を使用する場合
-        // new_ht.skip_dummy_resize(skip_dummy.size());
-        // for(int i=0; i < int(skip_dummy.size()); i++) {
-        //     new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);
-        //     new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());
-        //     std::vector<uint64_t> skip;
-        //     for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
-        //         skip.emplace_back(table_[skip_dummy[i].skip[j]]);
-        //     }
-        //     new_ht.skip_dummy_set_skip(i, skip);
-        // }
-
-        // new_ht.skip_dummy_sort();
-
-        // unordered_mapを使用する場合
         new_ht.skip_dummy_resize(skip_dummy.size());
         for(int i=0; i < int(skip_dummy.size()); i++) {
-            new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);    // skip_dummy[].node_idの更新
-            new_ht.set_node_to_skip_dummy(table_[skip_dummy[i].node_id], i+1);  // node_to_skip_dummyの更新
-            new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());        // skip_dummy[].skipのサイズ変更
-            std::vector<uint64_t> skip;
+            new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);
+            new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());
+            // std::vector<uint64_t> skip;
+            // for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
+            //     skip.emplace_back(table_[skip_dummy[i].skip[j]]);
+            // }
+            std::vector<std::pair<int, uint64_t>> skip;
             for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
-                if(skip_dummy[i].skip[j] == nil_id) skip.emplace_back(nil_id);
-                else skip.emplace_back(table_[skip_dummy[i].skip[j]]);
+                skip.emplace_back(skip_dummy[i].skip[j].first, table_[skip_dummy[i].skip[j].second]);
             }
             new_ht.skip_dummy_set_skip(i, skip);
         }
+        new_ht.skip_dummy_sort();
+
+        // unordered_mapを使用する場合
+        // new_ht.skip_dummy_resize(skip_dummy.size());
+        // for(int i=0; i < int(skip_dummy.size()); i++) {
+        //     new_ht.skip_dummy_set_node_id(i, table_[skip_dummy[i].node_id]);    // skip_dummy[].node_idの更新
+        //     new_ht.set_node_to_skip_dummy(table_[skip_dummy[i].node_id], i+1);  // node_to_skip_dummyの更新
+        //     new_ht.skip_dummy_skip_resize(i, skip_dummy[i].skip.size());        // skip_dummy[].skipのサイズ変更
+        //     std::vector<uint64_t> skip;
+        //     for(int j=0; j < int(skip_dummy[i].skip.size()); j++) {
+        //         if(skip_dummy[i].skip[j] == nil_id) skip.emplace_back(nil_id);
+        //         else skip.emplace_back(table_[skip_dummy[i].skip[j]]);
+        //     }
+        //     new_ht.skip_dummy_set_skip(i, skip);
+        // }
 
         node_map node_map{std::move(table_), std::move(done_flags)};
         std::swap(*this, new_ht);
@@ -352,7 +401,8 @@ class plain_bonsai_trie_SD {
         skip_dummy[pos].node_id = node_id;
     }
 
-    void skip_dummy_set_skip(uint64_t pos, const std::vector<uint64_t>& skip) {
+    // void skip_dummy_set_skip(uint64_t pos, const std::vector<uint64_t>& skip) {
+    void skip_dummy_set_skip(uint64_t pos, const std::vector<std::pair<int, uint64_t>>& skip) {
         for(int i=0; i < int(skip.size()); i++) skip_dummy[pos].skip[i] = skip[i];
     }
 
@@ -363,7 +413,24 @@ class plain_bonsai_trie_SD {
     }
 
     void set_node_to_skip_dummy(uint64_t node_id, int pos) {
-        node_to_skip_dummy[node_id] = pos;
+        // node_to_skip_dummy[node_id] = pos;
+    }
+
+    void add_cnt(int index) const {
+        // skip_data[index]++;
+    }
+
+    // ダミーノードをチェックするための関数
+    void check_skip_dummy() {
+        std::cout << " --- check_skip_dummy --- " << std::endl;
+        // for(int i=0; i < 10; i++) {
+        //     // std::cout << i << " : " << skip_data[i] << std::endl;
+        //     std::cout << skip_data[i] << std::endl;
+        // }
+
+        // for(int i=0; i < 50; i++) std::cout << skip_data[i] << std::endl;
+        // std::cout << "node_to_skip_dummys_size : " << node_to_skip_dummy.size() << std::endl;
+        std::cout << "skip_dummy_size : " << skip_dummy.size() << std::endl;
     }
 
     // # of registerd nodes
@@ -421,7 +488,7 @@ class plain_bonsai_trie_SD {
     size_p2 capa_size_;
     size_p2 symb_size_;
     std::vector<skip_dummy_info> skip_dummy;
-    std::unordered_map<uint64_t, int> node_to_skip_dummy;
+    // std::unordered_map<uint64_t, int> node_to_skip_dummy;
 #ifdef POPLAR_EXTRA_STATS
     uint64_t num_resize_ = 0;
 #endif

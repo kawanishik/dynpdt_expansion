@@ -188,6 +188,11 @@ class map_SD {
         return vptr ? const_cast<value_type*>(vptr) : nullptr;
     }
 
+    // ダミーノードをチェックするための関数
+    void check_skip_dummy() {
+        hash_trie_.check_skip_dummy();
+    }
+
     // Gets the number of registered keys.
     uint64_t size() const {
         return size_;
