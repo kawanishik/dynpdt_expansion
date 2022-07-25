@@ -229,6 +229,11 @@ class plain_bonsai_trie_SNR {
         std::cout << "all : " << all << std::endl;
     }
 
+    bool is_use_table(uint64_t i) {
+        if(table_[i] == 0) return false;
+        return true;
+    }
+
     // # of registerd nodes
     uint64_t size() const {
         return size_;

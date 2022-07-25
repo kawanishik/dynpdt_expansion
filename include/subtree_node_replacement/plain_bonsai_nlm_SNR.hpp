@@ -76,6 +76,10 @@ class plain_bonsai_nlm_SNR {
         ptrs_ = std::move(new_ptrs);
     }
 
+    uint8_t* return_string_pointer(uint64_t pos) const {
+        return ptrs_[pos].get();
+    }
+
     uint64_t size() const {
         return size_;
     }
