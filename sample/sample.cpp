@@ -156,7 +156,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
-    std::string input_name = "../../../dataset/in-2004.txt";
+    // std::string input_name = "../../../dataset/in-2004.txt";
     // std::string input_name = "../../../dataset/uk-2005.txt";
     // std::string input_name = "../../../dataset/webbase-2001.txt";
 
@@ -174,7 +174,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
     // std::string input_name = "../../../dataset/s17.txt"; // 大学で実験するとき
 
-    // std::string input_name = "../../../dataset/enwiki_partial.txt";
+    std::string input_name = "../../../dataset/enwiki_partial.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss2.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss3.txt";
     // std::string input_name = "../../../dataset/in-2004_partial.txt";
@@ -483,6 +483,41 @@ void use_map_akr(Map& map, std::vector<std::string>& keys, std::vector<std::stri
     // std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
 }
 
+template <class Map>
+void use_map_SNR(Map& map, std::vector<std::string>& keys, std::vector<std::string>& test_keys, uint64_t begin_size) {
+    std::cout << "--- use_map_SNR ---" << std::endl;
+
+    Stopwatch sw;
+    map.dynamic_replacement();
+    auto replacement_time = sw.get_milli_sec();
+    std::cout << "replacement time : " << replacement_time / 1000.0 << std::endl;
+
+    auto ram_size = get_process_size() - begin_size;
+    std::cout << "before_search_ram_size : " << ram_size << std::endl;
+
+    bool test_check = true;
+    map.reset_cnt_hash();
+    for(int i=0; i < int(keys.size()); i++) {
+        // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+        const int *ptr = map.find(keys[i]);
+        if(not (ptr != nullptr and *ptr == 1)) {
+            std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+            test_check = false;
+            // return;
+        }
+    }
+    std::cout << (test_check ? "ok." : "failed.") << std::endl;
+
+    // map.reset_cnt_hash();
+    // double search_time = AllDatasetSearchSpeed(map, test_keys);
+    // // double search_time = CalcSearchSpeed(map, keys, keys.size());
+    // map.show_cnt_hash();
+    // std::cout << "time_search : " << search_time << std::endl;
+
+    // std::cout << "transition_search_time : " << map.get_node_transition_search_time() << std::endl;
+    // std::cout << "label_search_time : " << map.get_label_search_time() << std::endl;
+}
+
 int main(int argc, char* argv[]) {
 
     std::vector<std::string> keys;                              // 辞書構築用の配列
@@ -583,14 +618,16 @@ int main(int argc, char* argv[]) {
         // auto begin_size = get_process_size();
         poplar::plain_bonsai_map_table<int> map;
         bench(map, keys, test_keys, random_test_keys);
-        map.check_not_use_hash();
+        // map.check_not_use_hash();
     } else if(input_name == "SD") {
         poplar::plain_bonsai_map_SD<int> map;
         bench(map, keys, test_keys, random_test_keys);
         // map.check_skip_dummy();
     } else if(input_name == "SNR") {
+        auto begin_size = get_process_size();
         poplar::plain_bonsai_map_SNR<int> map;
         bench(map, keys, test_keys, random_test_keys);
+        // use_map_SNR(map, keys, test_keys, begin_size);
     } else {
         std::cout << "そのような辞書は存在しません" << std::endl;
         std::cout << "現在使用できる辞書は以下のようなものになっています" << std::endl;
