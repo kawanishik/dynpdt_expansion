@@ -152,7 +152,7 @@ double CalcRandomFileSearchSpeed(const MAP &dyn_, const std::vector<std::vector<
 }
 
 void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_keys, std::vector<std::vector<std::string>>& random_test_keys) {
-    // std::string input_name = "../../../dataset/Titles-enwiki.txt";
+    std::string input_name = "../../../dataset/Titles-enwiki.txt";
     // std::string input_name = "../../../dataset/DS5";
     // std::string input_name = "../../../dataset/GeoNames.txt";
     // std::string input_name = "../../../dataset/AOL.txt";
@@ -174,7 +174,7 @@ void FileRead(std::vector<std::string>& keys, std::vector<std::string>& test_key
     // std::string input_name = "../../../dataset/s16.txt"; // 家で実験するとき
     // std::string input_name = "../../../dataset/s17.txt"; // 大学で実験するとき
 
-    std::string input_name = "../../../dataset/enwiki_partial.txt";
+    // std::string input_name = "../../../dataset/enwiki_partial.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss2.txt";
     // std::string input_name = "../../../dataset/enwiki_find_miss3.txt";
     // std::string input_name = "../../../dataset/in-2004_partial.txt";
@@ -353,7 +353,7 @@ void bench(Map& map, std::vector<std::string>& keys, std::vector<std::string>& t
     auto search_time = CalcSearchSpeed(map, keys, input_num_keys);           // 実験に使用する測定方法
     // auto search_time = CalcRandomFileSearchSpeed(map, random_test_keys);
     // auto search_time = CalcSearchSpeedSequence(map, keys, input_num_keys); // string_viewで検索する際にエラー
-    map.show_cnt_hash();
+    // map.show_cnt_hash();
     std::cout << "time_search : " << search_time << std::endl;
 }
 
@@ -495,18 +495,18 @@ void use_map_SNR(Map& map, std::vector<std::string>& keys, std::vector<std::stri
     auto ram_size = get_process_size() - begin_size;
     std::cout << "before_search_ram_size : " << ram_size << std::endl;
 
-    bool test_check = true;
-    map.reset_cnt_hash();
-    for(int i=0; i < int(keys.size()); i++) {
-        // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
-        const int *ptr = map.find(keys[i]);
-        if(not (ptr != nullptr and *ptr == 1)) {
-            std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
-            test_check = false;
-            // return;
-        }
-    }
-    std::cout << (test_check ? "ok." : "failed.") << std::endl;
+    // bool test_check = true;
+    // map.reset_cnt_hash();
+    // for(int i=0; i < int(keys.size()); i++) {
+    //     // std::cout << "*** key" << i << " : " << keys[i] << std::endl;
+    //     const int *ptr = map.find(keys[i]);
+    //     if(not (ptr != nullptr and *ptr == 1)) {
+    //         std::cout << "search_failed : " << i << "," << keys[i] << std::endl;
+    //         test_check = false;
+    //         return;
+    //     }
+    // }
+    // std::cout << (test_check ? "ok." : "failed.") << std::endl;
 
     // map.reset_cnt_hash();
     // double search_time = AllDatasetSearchSpeed(map, test_keys);
