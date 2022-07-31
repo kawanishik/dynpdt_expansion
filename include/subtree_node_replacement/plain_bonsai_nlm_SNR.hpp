@@ -76,6 +76,19 @@ class plain_bonsai_nlm_SNR {
         ptrs_ = std::move(new_ptrs);
     }
 
+    // 元のptrs_からnew_map.ptrsに移すための関数
+    void move_original_to_new_ptrs_(std::vector<std::unique_ptr<uint8_t[]>>& original_ptrs_, std::vector<std::pair<uint64_t, uint64_t>>& move_pair) {
+        // std::cout << "--- move_original_to_new_ptrs ---" << std::endl;
+        // std::cout << "pair_size : " << move_pair.size() << std::endl;
+        for(auto [pre_node_id, new_node_id] : move_pair) {
+            ptrs_[new_node_id] = std::move(original_ptrs_[pre_node_id]);
+        }
+    }
+
+    std::vector<std::unique_ptr<uint8_t[]>> &return_ptrs_() {
+        return ptrs_;
+    }
+
     uint8_t* return_string_pointer(uint64_t pos) const {
         return ptrs_[pos].get();
     }

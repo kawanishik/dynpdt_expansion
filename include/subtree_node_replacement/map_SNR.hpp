@@ -66,11 +66,14 @@ class map_SNR {
         int cnt = 0;
 
         while (!key.empty()) {
+            // std::cout << key.begin << std::endl;
+            // std::cout << "node_id : " << node_id << std::endl;
             auto [vptr, match] = label_store_.compare(node_id, key);
             if (vptr != nullptr) {
                 cnt_hash[cnt] += 1;
                 return vptr;
             }
+            // std::cout << match << ", " << *key.begin << std::endl;
 
             key.begin += match;
 
@@ -109,6 +112,7 @@ class map_SNR {
         POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
         POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
 
+        char_range tmp_key = key;
         if (hash_trie_.size() == 0) {
             if (!is_ready_) {
                 *this = this_type{0};
@@ -140,7 +144,11 @@ class map_SNR {
 
             while (lambda_ <= match) {
                 if (hash_trie_.add_child(node_id, step_symb)) {
-                    expand_if_needed_(node_id);
+                    // expand_if_needed_(node_id);
+                    if(is_need_expand()) {
+                        // std::cout << "key1 : " << tmp_key.begin << std::endl;
+                        return dynamic_replacement(tmp_key);
+                    }
 #ifdef POPLAR_EXTRA_STATS
                     ++num_steps_;
 #endif
@@ -160,7 +168,88 @@ class map_SNR {
             }
 
             if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
-                expand_if_needed_(node_id);
+                // expand_if_needed_(node_id);
+                if(is_need_expand()) {
+                    // std::cout << "key2 : " << tmp_key.begin << std::endl;
+                    return dynamic_replacement(tmp_key);
+                }
+                ++key.begin;
+                ++size_;
+
+                if constexpr (trie_type_id == trie_type_ids::FKHASH_TRIE) {
+                    assert(node_id == label_store_.size());
+                    return label_store_.append(key);
+                }
+                if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+                    return label_store_.insert(node_id, key);
+                }
+                // should not come
+                assert(false);
+            }
+
+            ++key.begin;
+        }
+
+        auto vptr = label_store_.compare(node_id, key).first;
+        return vptr ? const_cast<value_type*>(vptr) : nullptr;
+    }
+
+    value_type* update(char_range key, uint64_t& node_id) {
+        POPLAR_THROW_IF(key.empty(), "key must be a non-empty string.");
+        POPLAR_THROW_IF(*(key.end - 1) != '\0', "The last character of key must be the null terminator.");
+
+        if (hash_trie_.size() == 0) {
+            if (!is_ready_) {
+                *this = this_type{0};
+            }
+            // The first insertion
+            ++size_;
+            hash_trie_.add_root();
+
+            if constexpr (trie_type_id == trie_type_ids::FKHASH_TRIE) {
+                // assert(hash_trie_.get_root() == label_store_.size());
+                return label_store_.append(key);
+            }
+            if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+                return label_store_.insert(hash_trie_.get_root(), key);
+            }
+            // should not come
+            assert(false);
+        }
+
+        node_id = hash_trie_.get_root();
+
+        while (!key.empty()) {
+            auto [vptr, match] = label_store_.compare(node_id, key);
+            if (vptr != nullptr) {
+                return const_cast<value_type*>(vptr);
+            }
+
+            key.begin += match;
+
+            while (lambda_ <= match) {
+                if (hash_trie_.add_child(node_id, step_symb)) {
+                    // expand_if_needed_(node_id);
+#ifdef POPLAR_EXTRA_STATS
+                    ++num_steps_;
+#endif
+                    if constexpr (trie_type_id == trie_type_ids::FKHASH_TRIE) {
+                        assert(node_id == label_store_.size());
+                        label_store_.append_dummy();
+                    }
+                }
+                match -= lambda_;
+            }
+
+            if (codes_[*key.begin] == UINT8_MAX) {
+                // Update table
+                restore_codes_[num_codes_] = *key.begin;
+                codes_[*key.begin] = static_cast<uint8_t>(num_codes_++);
+                POPLAR_THROW_IF(UINT8_MAX == num_codes_, "");
+            }
+
+            if (hash_trie_.add_child(node_id, make_symb_(*key.begin, match))) {
+                // expand_if_needed_(node_id);
                 ++key.begin;
                 ++size_;
 
@@ -291,6 +380,57 @@ class map_SNR {
         while(node_id != hash_trie_.get_root()) {
             auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
             auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
+
+            if(c == 0x00) insert_string.clear();
+            else insert_string = c + insert_string;
+
+            uint64_t dummy_step = 0; // ダミーノードの数を数える
+            while(1) {
+                fs = label_store_.return_string_pointer(parent);
+                if(fs == nullptr) {
+                    dummy_step++;
+                    auto [tmp1, tmp2] = hash_trie_.get_parent_and_symb(parent);
+                    parent = tmp1;
+                } else {
+                    break;
+                }
+            }
+
+            match += dummy_step * lambda_; // スキップした回数分だけ足す
+
+            if(match != 0) {
+                fs = label_store_.return_string_pointer(parent);
+                std::string tmp_str = "";
+                for(uint64_t j=0; j < match; j++) {
+                    tmp_str += fs[j];
+                }
+                insert_string = tmp_str + insert_string;
+            }
+
+            node_id = parent;
+        }
+        return insert_string;
+    }
+
+    // 途中の動作を確認する用の関数
+    std::string restore_insert_string_test(uint64_t node_id) {
+        std::string insert_string = ""; // ここに文字列を格納して、新しい辞書に挿入する
+
+        // とりあえず、文字列を復元する
+        auto fs = label_store_.return_string_pointer(node_id);
+        if(fs == nullptr) return insert_string;
+        for(uint64_t i=0;; i++) {
+            if(fs[i] == 0x00) break;
+            insert_string += fs[i];
+        }
+
+        // get_root()まで、文字列を復元する
+        while(node_id != hash_trie_.get_root()) {
+            auto [parent, symb] = hash_trie_.get_parent_and_symb(node_id); // 親ノードとsymbを取得
+            auto [c, match] = restore_symb_(symb);                         // symbから、遷移に失敗した箇所とlabelを取得する
+
+            std::cout << insert_string << std::endl;
+            std::cout << symb << ", " << c << ", " << match << std::endl;
 
             if(c == 0x00) insert_string.clear();
             else insert_string = c + insert_string;
@@ -620,22 +760,49 @@ class map_SNR {
     void process_store_leading_node(Map& new_map,
                                     std::vector<std::pair<uint64_t, uint64_t>>& store_leading_node, // {node_id, common_prefix_length}
                                     std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children) {    // [node_id] {match, node_id}
-        std::string restore_key = "";
+        std::vector<std::pair<uint64_t, uint64_t>> move_pair;   // 元の配列番号と現在の配列番号のペア
+        // 基準となるノード以外はsubtree_add_new_map関数を使用して、処理する
         for(auto [node_id, common_prefix_length] : store_leading_node) {
-            subtree_add_new_map(new_map, node_id, restore_key, common_prefix_length, children);
+            // 先頭ノードは、分岐文字、位置が変化している可能性があるので、文字列を復元し、対処する
+            std::string restore_key = restore_insert_string(node_id);
+            uint64_t pre_node_id = node_id;
+            int* ptr = new_map.update(make_char_range(restore_key), node_id);
+            *ptr = 1;
+            subtree_add_new_map(new_map, pre_node_id, node_id, children, move_pair);
         }
+
+        // 元のptrs_配列を読み込み、新しいptrs_配列にmoveする
+        std::vector<std::unique_ptr<uint8_t[]>> &original_ptrs_ = label_store_.return_ptrs_();
+        new_map.label_store_.move_original_to_new_ptrs_(original_ptrs_, move_pair);
     }
 
     // 与えられたノードに対して、再帰関数を使用して、新しいmapに追加する
     template<class Map>
-    void subtree_add_new_map(Map& new_map,
-                             uint64_t node_id,
-                             std::string restore_key,
-                             uint64_t common_prefix_length,
-                             std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children) {
-        insert_new_dic(new_map, node_id, 0, restore_key);
+    void subtree_add_new_map(Map& new_map,          
+                             uint64_t node_id,      // 元のテーブルでの値(親)
+                             uint64_t new_node_id,  // new_map上のテーブルでの値(new_map上での親)
+                             std::vector<std::vector<std::pair<uint64_t, uint64_t>>>& children, // [] {first:match, second:next_node_id}
+                             std::vector<std::pair<uint64_t, uint64_t>>& move_pair) {    // 元の配列番号と現在の配列番号のペア
         for(auto child : children[node_id]) {
-            subtree_add_new_map(new_map, child.second, restore_key, common_prefix_length+child.first, children);
+            auto [parent, label] = hash_trie_.get_parent_and_symb(child.second);    // ラベル取得
+            auto [c, match] = restore_symb_(label);
+            uint64_t pre_node_id = child.second;    // 元の配列上での次のノード番号
+            uint64_t next_node_id = new_node_id;    // new_map上での、遷移前のノード番号
+
+            // ダミーノードの処理
+            uint64_t match_tmp = child.first;
+            while(match_tmp >= lambda_) {
+                new_map.hash_trie_.add_child(next_node_id, step_symb);
+                match_tmp -= lambda_;
+            }
+            
+            new_map.add_codes_(c);  // codes_に使用する文字の追加
+            new_map.hash_trie_.add_child(next_node_id, new_map.make_symb_(c, match));   // new_node_idとラベルで、次のノードへ
+            move_pair.emplace_back(pre_node_id, next_node_id);  // pairで元の番号と新しい番号を保存しておく
+            new_map.size_++;    // 追加したキー数をプラスする
+            // label_store_の該当部分をmoveで完了(元:child.second, new:next_node_id)→したかったがうまくいかなかった
+
+            subtree_add_new_map(new_map, pre_node_id, next_node_id, children, move_pair);
         }
     }
 
@@ -768,6 +935,13 @@ class map_SNR {
         std::cout << failed_node << std::endl;
         
         // 格納されているノードの高さがすべてstandard_height+1であることの確認→ダミーノードの関係上、そうとは限らない
+        // 全てのノードがダミーノードでないことの確認
+        int dummy_node_cnt = 0;
+        for(auto node : store_leading_node) {
+            auto fs = label_store_.return_string_pointer(node.first);
+            if(fs == nullptr) dummy_node_cnt++;
+        }
+        std::cout << "dummy_node_cnt : " << dummy_node_cnt << std::endl;
     }
 
     void write_file(std::vector<int>& height_sum) {
@@ -798,15 +972,19 @@ class map_SNR {
         }
     } 
 
-    void dynamic_replacement() {
+    // 動的にいれかえるための関数
+    value_type* dynamic_replacement(char_range& key) {
+    // void dynamic_replacement() {
         std::vector<int> node_height;
         std::vector<uint64_t> each_node_height_sum;
-        int max_height = calc_height(node_height, each_node_height_sum);  // それぞれのノードの高さと最大のノードの高さを取得
+        // int max_height = calc_height(node_height, each_node_height_sum);  // それぞれのノードの高さと最大のノードの高さを取得
+        calc_height(node_height, each_node_height_sum);
         // calc_height_sum(node_height);
         uint64_t standard_height = 0;           // 基準となる木の高さ(ここまでは入れ替えの対象)
         uint64_t node_sum = hash_trie_.size();  // ノードの合計数
         double ratio_sum = 0.0;                 // 比率の合計
 
+        // 基準の高さを求める
         for(int i=1; i < int(each_node_height_sum.size()); i++) {
             // std::cout << i << " : " << each_node_height_sum[i] << std::endl;
             double ratio = (long double)(each_node_height_sum[i]) / (long double)(node_sum);
@@ -817,15 +995,15 @@ class map_SNR {
             ratio_sum += ratio;
         }
 
-        std::cout << "max_height : " << max_height << std::endl;
-        std::cout << "standard_height : " << standard_height << std::endl;
+        // std::cout << "max_height : " << max_height << std::endl;
+        // std::cout << "standard_height : " << standard_height << std::endl;
         // std::cout << "ratio_sum : " << ratio_sum << std::endl;
 
         std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
         std::vector<uint64_t> cnt_leaf_per_node;
         compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
 
-        map_SNR new_map(hash_trie_.capa_bits());
+        map_SNR new_map(hash_trie_.capa_bits()+1);
 
         // std::vector<std::pair<bool, uint64_t>> store_node;  // standard_height以上の高さの木を処理する順に保存しておく
         std::vector<std::pair<uint64_t, uint64_t>> store_leading_node;  // 基準のノードの先頭を保持する
@@ -836,7 +1014,7 @@ class map_SNR {
         // check_store_node(store_node, node_height, standard_height, children);
 
         // store_leading_nodeの確認
-        check_store_leading_node(store_leading_node, node_height, standard_height, children);
+        // check_store_leading_node(store_leading_node, node_height, standard_height, children);
 
         // store_nodeを辞書に登録する
         // process_store_node(new_map, store_node);
@@ -845,6 +1023,23 @@ class map_SNR {
         process_store_leading_node(new_map, store_leading_node, children);
 
         std::swap(*this, new_map);
+
+        // std::cout << "size : " << size() << std::endl;  // 追加したキー数の確認
+        // std::cout << "num_codes_ : " << num_codes_ << std::endl; // codes_内で使用されている個数
+
+        // 全ての文字列の復元
+        // auto all_keys = all_key_restore_simple();
+        // write_file(all_keys);
+
+        return update(key);
+    }
+
+    void add_codes_(uint8_t c) {
+        if(codes_[c] == UINT8_MAX) {
+            restore_codes_[num_codes_] = c;
+            codes_[c] = static_cast<uint8_t>(num_codes_++);
+            POPLAR_THROW_IF(UINT8_MAX == num_codes_, "");
+        }
     }
 
     // Gets the number of registered keys.
@@ -987,11 +1182,20 @@ class map_SNR {
             // std::vector<std::vector<std::pair<uint64_t, uint64_t>>> children;   // 子ノードの集合
             // std::vector<uint64_t> cnt_leaf_per_node;
             // compute_node_connect_and_blanch_num(children, cnt_leaf_per_node);
+            // std::cout << "children_size : " << children.size() << std::endl;
 
             auto node_map = hash_trie_.expand();
             node_id = node_map[node_id];
             label_store_.expand(node_map);
         }
+    }
+
+    // ハッシュテーブルの拡張が必要か調べるための関数
+    bool is_need_expand() {
+        if constexpr (trie_type_id == trie_type_ids::BONSAI_TRIE) {
+            if(hash_trie_.needs_to_expand()) return true;
+        }
+        return false;
     }
 };
 
